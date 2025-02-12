@@ -1,0 +1,122 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Board {
+  id             String    @id @default(uuid())
+  title          String
+  description    String?
+  starred        Boolean   @default(false)
+  type           String
+  slug           String
+  ownerId        String // ID của người sở hữu
+  startDate      DateTime?
+  columnOrderIds String[] // Lưu trữ danh sách ID của columns theo thứ tự
+  columns        Column[]
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  BoardMembers BoardMember[]
+
+  Card Card[]
+
+  @@map("boards")
+}
+
+model Column {
+  id        String   @id @default(uuid())
+  title     String
+  boardId   String
+  board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  cardOrderIds String[] // Lưu danh sách ID của cards theo thứ tự
+  cards     Card[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("columns")
+}
+
+model Card {
+  id          String    @id @default(uuid())
+  title       String
+  description String?
+  cover       String?
+  startDate   DateTime?
+  columnId    String
+  boardId     String
+  column      Column    @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  board       Board     @relation(fields: [boardId], references: [id], onDelete: Cascade)
+
+  comments    Comment[] // Thay vì String[]
+  attachments Attachment[] // Thay vì String[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  CardMembers CardMember[]
+
+  @@map("cards")
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String
+  cardId    String
+  card      Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@map("comments")
+}
+
+model Attachment {
+  id        String   @id @default(uuid())
+  fileUrl   String
+  cardId    String
+  card      Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@map("attachments")
+}
+
+model User {
+  id         String       @id @default(uuid())
+  email      String       @unique
+  username   String      
+  password   String
+  isVerified Boolean      @default(false)
+  isActive   Boolean      @default(true)
+  boards     Board[] // Mối quan hệ với board
+  cards      CardMember[] // Mối quan hệ với card
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  BoardMember BoardMember[]
+
+  @@map("users")
+}
+
+model BoardMember {
+  boardId String
+  userId  String
+  board   Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([boardId, userId]) // Composite primary key
+  @@map("board_member")
+}
+
+model CardMember {
+  cardId String
+  userId String
+  card   Card   @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([cardId, userId]) // Composite primary key
+  @@map("card_members")
+}
