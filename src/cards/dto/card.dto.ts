@@ -1,13 +1,15 @@
 import { IsNotEmpty, IsString } from "class-validator";
 
-export class BoardDTO{
+ export class cardDTO{
     @IsString()
     @IsNotEmpty()
     title:string
 
     @IsString()
-    description?:string;
+    @IsNotEmpty()
+    columnId:string
 
     @IsString()
-    type?:string;
-}
+    @IsNotEmpty()
+    boardId:string
+ }

@@ -1,11 +1,11 @@
 import { Body, Controller, Get, Param, ParseIntPipe, Post, Request, UseGuards } from '@nestjs/common';
 import { BoardsService } from './boards.service';
 import { BoardDTO } from './dto/board.dto';
-import { JwtAuthGuard } from '../auth/guard';
+import { JwtAuthGuard } from '../guard';
 
 @Controller('api/v1/boards')
 export class BoardsController {
-    constructor(private boardsService: BoardsService) { }
+    constructor(private boardsService: BoardsService) {}
     @Get('/')
     getAllBoards() {
         return {

@@ -2,7 +2,7 @@ import { Injectable, HttpException, HttpStatus, NotFoundException, BadRequestExc
 import { PrismaService } from "../prisma/prisma.service";
 import { BoardDTO } from './dto';
 import { slugify } from '../utils/formatters';
-import { title } from 'process';
+import { validateUser } from '../utils/validations';
 
 @Injectable()
 export class BoardsService {
@@ -10,16 +10,7 @@ export class BoardsService {
 
     async createBoard(boardDTO: BoardDTO, userId: string) {
         try {
-            const userExists = await this.prisma.user.findUnique({
-                where: { id: userId },
-            });
-
-            if (!userExists) {
-                throw new HttpException(
-                    { message: "User does not exist", userId },
-                    HttpStatus.BAD_REQUEST
-                );
-            }
+            await validateUser(this.prisma, userId);
 
             const newBoard = await this.prisma.board.create({
                 data: {
@@ -37,12 +28,8 @@ export class BoardsService {
                 data: newBoard,
             };
         } catch (error) {
-            console.error("Error creating board:", error);
-
-            throw new HttpException(
-                { message: "Database error", error: error.message },
-                HttpStatus.INTERNAL_SERVER_ERROR
-            );
+            console.error('Error creating board:', error);
+            throw new InternalServerErrorException(error.message);
         }
     }
 
