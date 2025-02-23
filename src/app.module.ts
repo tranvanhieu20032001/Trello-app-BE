@@ -8,10 +8,11 @@ import { EmailModule } from './email/email.module';
 import { BoardsModule } from './boards/boards.module';
 import { ColumnsModule } from './columns/columns.module';
 import { CardsModule } from './cards/cards.module';
+import { WorkspaceModule } from './workspace/workspace.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    AuthModule, UserModule, PrismaModule, EmailModule, BoardsModule, ColumnsModule, CardsModule],
+    AuthModule, UserModule, PrismaModule, EmailModule, BoardsModule, ColumnsModule, CardsModule, WorkspaceModule],
   controllers: [],
   providers: [],
 })

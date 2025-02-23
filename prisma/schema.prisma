@@ -7,6 +7,26 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Workspace {
+  id          String            @id @default(uuid())
+  name        String
+  description String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  ownerId     String
+  owner       User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  members     WorkspaceMember[]
+  boards      Board[]
+}
+
+model WorkspaceMember {
+  id          String    @id @default(uuid())
+  userId      String
+  workspaceId String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
 model Board {
   id             String    @id @default(uuid())
   title          String
@@ -25,20 +45,21 @@ model Board {
 
   BoardMembers BoardMember[]
 
-  Card Card[]
+  Card      Card[]
+  Workspace Workspace[]
 
   @@map("boards")
 }
 
 model Column {
-  id        String   @id @default(uuid())
-  title     String
-  boardId   String
-  board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  id           String   @id @default(uuid())
+  title        String
+  boardId      String
+  board        Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
   cardOrderIds String[] // Lưu danh sách ID của cards theo thứ tự
-  cards     Card[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  cards        Card[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@map("columns")
 }
@@ -60,6 +81,7 @@ model Card {
   updatedAt   DateTime     @updatedAt
 
   CardMembers CardMember[]
+  User        User[]
 
   @@map("cards")
 }
@@ -85,18 +107,23 @@ model Attachment {
 }
 
 model User {
-  id         String       @id @default(uuid())
-  email      String       @unique
-  username   String      
-  password   String
-  isVerified Boolean      @default(false)
-  isActive   Boolean      @default(true)
-  boards     Board[] // Mối quan hệ với board
-  cards      CardMember[] // Mối quan hệ với card
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
+  id           String        @id @default(uuid())
+  email        String        @unique
+  username     String
+  password     String
+  isVerified   Boolean       @default(false)
+  isActive     Boolean       @default(true)
+  avatar       String?
+  refreshToken String?
+  boards       Board[] // Mối quan hệ với board
+  cards        Card[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  workspaces   Workspace[]
+  BoardMember  BoardMember[]
+  CardMember   CardMember[] // Mối quan hệ với card
 
-  BoardMember BoardMember[]
+  WorkspaceMember WorkspaceMember[]
 
   @@map("users")
 }
