@@ -88,20 +88,36 @@ export class AuthService {
     }
 
 
-    async loginGoogle(googleUser: any){
-        const user = await this.prismaService.user.findUnique({
-            where:{email:googleUser.email}
-        })
-        if(user) return user;
-        return await this.prismaService.user.create({
-            data: {
-                email: googleUser.email,
-                username: googleUser.username,
-                password:'',
-                avatar: googleUser.avatar
-            }
-        })
+    async loginGoogle(googleUser: any, res: Response) {
+        let user = await this.prismaService.user.findUnique({
+            where: { email: googleUser.email }
+        });
+
+        if (!user) {
+            user = await this.prismaService.user.create({
+                data: {
+                    email: googleUser.email,
+                    username: googleUser.username,
+                    password: '',
+                    isVerified: true,
+                    avatar: googleUser.avatar
+                }
+            });
+        }
+
+        const { accessToken, refreshToken } = await this.signJwtToken(user.id, user.email, user.username);
+
+        await this.updateRefreshToken(user.id, refreshToken);
+
+        res.cookie('refreshToken', refreshToken, {
+            httpOnly: true,
+            secure: false, // Dùng `true` nếu HTTPS
+            sameSite: 'strict',
+            maxAge: 7 * 24 * 60 * 60 * 1000
+        });
+        return res.redirect(`http://localhost:5173/callback?token=${accessToken}`)
     }
+
 
     async verifyEmail(token: string) {
         try {
@@ -128,15 +144,21 @@ export class AuthService {
         }
     }
 
-    async logout(userId: string) {
+
+    async logout(userId: string, res: Response) {
         await this.prismaService.user.update({
             where: { id: userId },
             data: { refreshToken: null },
         });
-        return { success: true, message: "Logout successful" };
+
+        res.clearCookie('refreshToken', {
+            httpOnly: true,
+            sameSite: 'strict',
+            path: '/'
+        });
+        res.status(200).json({ success: true, message: "Logout successful" });
     }
-
-
+  
     async refreshTokens(userId: string, refreshToken: string) {
         const user = await this.prismaService.user.findUnique({
             where: { id: userId },
@@ -161,7 +183,7 @@ export class AuthService {
         const payload = { sub: userId, email, username };
 
         const accessToken = await this.jwtService.signAsync(payload, {
-            expiresIn: '1d',
+            expiresIn: '2m',
             secret: this.configService.get('JWT_SECRET'),
         });
 

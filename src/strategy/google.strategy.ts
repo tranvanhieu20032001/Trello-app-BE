@@ -11,6 +11,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       clientSecret: configService.get<string>('GOOGLE_SECRET'),
       callbackURL: configService.get<string>('GOOGLE_CALLBACK_URL'), // Sửa lỗi 'callBackURL' thành 'callbackURL'
       scope: ['email', 'profile'],
+      accessType: 'offline', // Lấy refreshToken
       prompt: 'select_account'
     });
   }
@@ -25,6 +26,6 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       accessToken,
     };
     console.log("user", user);
-    done(null,user)
+    done(null, user)
   }
 }

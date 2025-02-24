@@ -1,9 +1,9 @@
-import { Body, Controller, Get, Post, Query, Req, Res, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Post, Query, Req, Res, UseGuards } from "@nestjs/common";
 import { AuthService } from "./auth.service";
 import { AuthDTO } from "./dto";
 import { Response } from "express";
-import { GoogleAuthGaurd } from "../guard/google-auth.guard";
-import { Public } from "@prisma/client/runtime/library";
+import { GoogleAuthGuard } from "../guard/google-auth.guard";
+
 @Controller('api/v1/auth')
 
 export class AuthController {
@@ -19,34 +19,34 @@ export class AuthController {
 
    @Post("login")
    login(@Body() body: AuthDTO, @Res() res: Response) {
-      return this.authService.login(body,res)
+
+      return this.authService.login(body, res)
    }
 
    @Get("verify")
-   verifyEmail(@Query('token') token: string){
+   verifyEmail(@Query('token') token: string) {
       return this.authService.verifyEmail(token)
    }
 
    @Post('refresh')
    refreshTokens(@Body() body: { userId: string, refreshToken: string }) {
-       return this.authService.refreshTokens(body.userId, body.refreshToken);
+      return this.authService.refreshTokens(body.userId, body.refreshToken);
    }
 
    @Post('logout')
-   logout(@Body() body: { userId: string }) {
-       return this.authService.logout(body.userId);
+   @HttpCode(200)
+   logout(@Body() body: { userId: string }, @Res() res: Response) {
+       return this.authService.logout(body.userId, res);
    }
 
 
-   @UseGuards(GoogleAuthGaurd)
+   @UseGuards(GoogleAuthGuard)
    @Get("google/login")
-   googleLogin(){}
+   googleLogin() { }
 
-   @UseGuards(GoogleAuthGaurd)
+   @UseGuards(GoogleAuthGuard)
    @Get("google/redirect")
-   googleRedirect(@Req() req){
-      return this.authService.loginGoogle(req.user);
+   googleRedirect(@Req() req, @Res() res: Response) {
+      return this.authService.loginGoogle(req.user, res);
    }
-
-
 }
