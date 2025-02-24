@@ -144,6 +144,7 @@ export class AuthService {
         }
     }
 
+
     async logout(userId: string, res: Response) {
         await this.prismaService.user.update({
             where: { id: userId },
@@ -157,7 +158,7 @@ export class AuthService {
         });
         res.status(200).json({ success: true, message: "Logout successful" });
     }
-
+  
     async refreshTokens(userId: string, refreshToken: string) {
         const user = await this.prismaService.user.findUnique({
             where: { id: userId },

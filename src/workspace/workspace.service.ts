@@ -36,6 +36,7 @@ export class WorkspaceService {
     async getWorkSpaceByUser(userId: string) {
         try {
             // await validateUser(this.prisma, userId);
+
             const workspaces = await this.prisma.workspace.findMany({
                 where: {
                     OR: [

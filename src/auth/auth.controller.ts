@@ -3,6 +3,7 @@ import { AuthService } from "./auth.service";
 import { AuthDTO } from "./dto";
 import { Response } from "express";
 import { GoogleAuthGuard } from "../guard/google-auth.guard";
+
 @Controller('api/v1/auth')
 
 export class AuthController {
@@ -18,6 +19,7 @@ export class AuthController {
 
    @Post("login")
    login(@Body() body: AuthDTO, @Res() res: Response) {
+
       return this.authService.login(body, res)
    }
 
@@ -47,6 +49,4 @@ export class AuthController {
    googleRedirect(@Req() req, @Res() res: Response) {
       return this.authService.loginGoogle(req.user, res);
    }
-
-
 }
