@@ -17,6 +17,8 @@ model Workspace {
   owner       User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   members     WorkspaceMember[]
   boards      Board[]
+
+  Invite Invite[]
 }
 
 model WorkspaceMember {
@@ -146,4 +148,15 @@ model CardMember {
 
   @@id([cardId, userId]) // Composite primary key
   @@map("card_members")
+}
+
+model Invite {
+  id          String   @id @default(uuid())
+  workspaceId String
+  token       String   @unique
+  expiresAt   DateTime
+  createAt    DateTime @default(now())
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("invite")
 }
