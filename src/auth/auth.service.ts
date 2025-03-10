@@ -75,9 +75,9 @@ export class AuthService {
         await this.updateRefreshToken(user.id, refreshToken);
         res.cookie('refreshToken', refreshToken, {
             httpOnly: true,
-            secure: false, // Bật lên nếu dùng HTTPS
-            sameSite: 'strict',
-            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 ngày
+            secure: false, // Dùng `true` nếu HTTPS
+            sameSite: 'lax',
+            maxAge: 7 * 24 * 60 * 60 * 1000
         });
         return res.status(200).json({
             success: true,
@@ -112,10 +112,10 @@ export class AuthService {
         res.cookie('refreshToken', refreshToken, {
             httpOnly: true,
             secure: false, // Dùng `true` nếu HTTPS
-            sameSite: 'strict',
+            sameSite: 'lax',
             maxAge: 7 * 24 * 60 * 60 * 1000
         });
-        return res.redirect(`http://localhost:5173/callback?token=${accessToken}`)
+        return res.redirect(`${this.configService.get('FE_URL')}/callback?token=${accessToken}`)
     }
 
 
@@ -146,6 +146,7 @@ export class AuthService {
 
 
     async logout(userId: string, res: Response) {
+
         await this.prismaService.user.update({
             where: { id: userId },
             data: { refreshToken: null },
@@ -153,15 +154,28 @@ export class AuthService {
 
         res.clearCookie('refreshToken', {
             httpOnly: true,
-            sameSite: 'strict',
+            sameSite: 'lax',
             path: '/'
         });
         res.status(200).json({ success: true, message: "Logout successful" });
     }
-  
-    async refreshTokens(userId: string, refreshToken: string) {
+
+    async refreshTokens(refreshToken: string, res: Response) {
+        if (!refreshToken) {
+            throw new ForbiddenException('No Refresh Token Provided');
+        }
+
+        let decoded;
+        try {
+            decoded = this.jwtService.verify(refreshToken, {
+                secret: this.configService.get("JWT_REFRESH_SECRET"),
+            });
+        } catch (error) {
+            throw new ForbiddenException('Refresh Token Expired');
+        }
+
         const user = await this.prismaService.user.findUnique({
-            where: { id: userId },
+            where: { id: decoded.sub },
         });
 
         if (!user || !user.refreshToken) {
@@ -172,18 +186,23 @@ export class AuthService {
         if (!isMatch) {
             throw new ForbiddenException('Invalid Refresh Token');
         }
-
         const { accessToken, refreshToken: newRefreshToken } = await this.signJwtToken(user.id, user.email, user.username);
         await this.updateRefreshToken(user.id, newRefreshToken);
+        res.cookie('refreshToken', newRefreshToken, {
+            httpOnly: true,
+            secure: false,
+            sameSite: 'lax',
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+        });
 
-        return { accessToken, refreshToken: newRefreshToken };
+        return res.status(200).json({ accessToken });
     }
 
     async signJwtToken(userId: string, email: string, username: string): Promise<{ accessToken: string, refreshToken: string }> {
         const payload = { sub: userId, email, username };
 
         const accessToken = await this.jwtService.signAsync(payload, {
-            expiresIn: '2m',
+            expiresIn: '1h',
             secret: this.configService.get('JWT_SECRET'),
         });
 
