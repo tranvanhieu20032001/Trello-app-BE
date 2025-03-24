@@ -1,11 +1,11 @@
-import { BadRequestException, HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { validateUser } from '../utils/validations';
-import { contains } from 'class-validator';
+import { WorkspaceGateway } from '../gateways/workspace.gateway';
 
 @Injectable()
 export class WorkspaceService {
-    constructor(private prisma: PrismaService) { }
+    constructor(private prisma: PrismaService, private readonly workspaceGateway: WorkspaceGateway) { }
 
     async createWorkspace(userId: string, body: { title: string }) {
         try {
@@ -47,13 +47,13 @@ export class WorkspaceService {
 
     async getWorkspaceById(workspaceId: string) {
         const workspace = await this.prisma.workspace.findUnique({
-            where: { id: workspaceId }, 
+            where: { id: workspaceId },
             include: {
-                members:{
-                    include:{
-                        user:{
-                            include:{
-                                boards:true
+                members: {
+                    include: {
+                        user: {
+                            include: {
+                                boards: true
                             }
                         }
                     }
@@ -81,6 +81,7 @@ export class WorkspaceService {
                 workspaceId
             }
         });
+        this.workspaceGateway.sendNotification(workspaceId, `User ${userId} has joined the workspace`);
 
         return {
             message: 'Joined workspace successfully',
@@ -99,7 +100,7 @@ export class WorkspaceService {
             select: { id: true, username: true, email: true, avatar: true }
         })
     }
-    
+
 
     async updateWorkspaceName(workspaceId: string, userId: string, newName) {
         const workspace = await this.prisma.workspace.findUnique({
@@ -119,4 +120,80 @@ export class WorkspaceService {
         };
 
     }
+
+    async leaveWorkspace(workspaceId: string, userId: string) {
+        const workspace = await this.prisma.workspace.findUnique({
+            where: { id: workspaceId },
+            include: { members: true }
+        })
+        if (!workspace) {
+            throw new Error("workspace does not exist")
+        }
+        if (userId === workspace.ownerId) {
+            const newOwner = workspace.members.find(member => member.userId !== userId);
+            if (newOwner) {
+                await this.prisma.workspace.update({
+                    where: { id: workspaceId },
+                    data: { ownerId: newOwner.userId }
+                })
+            } else {
+                await this.prisma.workspace.delete({
+                    where: { id: workspaceId }
+                })
+
+                return { message: "The workspace has been deleted because there are no members left." };
+            }
+        }
+        await this.prisma.workspaceMember.deleteMany({
+            where: {
+                workspaceId: workspaceId,
+                userId: userId
+            }
+        })
+        return {
+            success: true,
+            message: "You have successfully left the workspace."
+        }
+
+    }
+
+    async removeMemberWorkspace(workspaceId: string, ownerId: string, userId: string) {
+        const workspace = await this.prisma.workspace.findUnique({
+            where: { id: workspaceId },
+            include: { members: true },
+        });
+        console.log("Workspace data:", workspace);
+        console.log("Members:", workspace?.members);
+        console.log("UserId to check:", userId);
+
+        if (!workspace) {
+            throw new NotFoundException("Workspace does not exist.");
+        }
+
+        if (workspace.ownerId !== ownerId) {
+            throw new ForbiddenException("Only the workspace owner can remove members.");
+        }
+
+        if (ownerId === userId) {
+            throw new BadRequestException("The owner cannot remove themselves from the workspace.");
+        }
+
+        const isMember = workspace.members.some(member => member.userId === userId);
+        if (!isMember) {
+            throw new BadRequestException("User is not a member of this workspace.");
+        }
+
+        await this.prisma.workspaceMember.deleteMany({
+            where: {
+                workspaceId: workspaceId,
+                userId: userId
+            }
+        });
+
+        return {
+            success: true,
+            message: "The user has been successfully removed from the workspace."
+        };
+    }
+
 }

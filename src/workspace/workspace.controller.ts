@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { WorkspaceService } from './workspace.service';
 import { JwtAuthGuard } from '../guard';
 import { query } from 'express';
@@ -30,7 +30,7 @@ export class WorkspaceController {
         return this.workspaceService.addMember(body.workspaceId, body.userId)
     }
 
-    @Get('search-user')
+    @Get('search/user')
     async searchUser(@Query('query') query: string) {
         return this.workspaceService.searchUser(query);
     }
@@ -38,5 +38,17 @@ export class WorkspaceController {
     @Post('updateWorkspaceName')
     async updateWorkspaceName(@Body() body: { workspaceId: string; userId: string; newName: string }) {
         return await this.workspaceService.updateWorkspaceName(body.workspaceId, body.userId, body.newName)
+    }
+    
+    @UseGuards(JwtAuthGuard)
+    @Patch(':workspaceId/leave')
+    async leaveWorkspace(@Param('workspaceId') workspaceId: string, @Req() req) {
+        const userId = req.user.user.id;
+        return this.workspaceService.leaveWorkspace(workspaceId, userId)
+    }
+
+    @Delete(":workspaceId/remove")
+    async removeUser(@Param("workspaceId") workspaceId: string, @Body() body: { ownerId: string, userId: string }) {
+        return await this.workspaceService.removeMemberWorkspace(workspaceId, body.ownerId, body.userId)
     }
 }
