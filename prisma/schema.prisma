@@ -32,13 +32,15 @@ model WorkspaceMember {
 model Board {
   id             String    @id @default(uuid())
   title          String
-  description    String?
+  background     String
   starred        Boolean   @default(false)
   type           String
   slug           String
-  ownerId        String // ID của người sở hữu
+  status         Boolean   @default(true)
+  ownerId        String
+  workspaceId    String
   startDate      DateTime?
-  columnOrderIds String[] // Lưu trữ danh sách ID của columns theo thứ tự
+  columnOrderIds String[]
   columns        Column[]
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
@@ -48,7 +50,7 @@ model Board {
   BoardMembers BoardMember[]
 
   Card      Card[]
-  Workspace Workspace[]
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@map("boards")
 }
@@ -151,12 +153,12 @@ model CardMember {
 }
 
 model Invite {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   workspaceId String
-  token       String   @unique
+  token       String    @unique
   expiresAt   DateTime
-  createAt    DateTime @default(now())
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createAt    DateTime  @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@map("invite")
 }

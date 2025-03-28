@@ -81,7 +81,7 @@ export class WorkspaceService {
                 workspaceId
             }
         });
-        this.workspaceGateway.sendNotification(workspaceId, `User ${userId} has joined the workspace`);
+        console.log(`Triggering WebSocket event for workspace ${workspaceId}`);
 
         return {
             message: 'Joined workspace successfully',
@@ -162,9 +162,6 @@ export class WorkspaceService {
             where: { id: workspaceId },
             include: { members: true },
         });
-        console.log("Workspace data:", workspace);
-        console.log("Members:", workspace?.members);
-        console.log("UserId to check:", userId);
 
         if (!workspace) {
             throw new NotFoundException("Workspace does not exist.");

@@ -11,10 +11,8 @@ export class AuthController {
    constructor(private authService: AuthService) {
    }
 
-   @Post("register") //Register a new user
-   //register(@Req() request: Request)
+   @Post("register")
    register(@Body() body: AuthDTO) {
-      //not validate using class-validator and class transformer
       return this.authService.register(body)
    }
 
@@ -31,8 +29,6 @@ export class AuthController {
    @Post("refresh")
    async refreshTokens(@Req() req: Request, @Res() res: Response) {
       const refreshToken = req.cookies?.refreshToken;
-      console.log("refreshToken",refreshToken);
-      
       return this.authService.refreshTokens(refreshToken, res);
    }
 

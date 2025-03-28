@@ -15,10 +15,11 @@ export class BoardsService {
             const newBoard = await this.prisma.board.create({
                 data: {
                     title: boardDTO.title,
-                    description: boardDTO.description,
+                    background: boardDTO.background,
                     ownerId: userId,
                     slug: slugify(boardDTO.title),
-                    type: boardDTO.type
+                    type: boardDTO.type,
+                    workspaceId: boardDTO.workspaceId
                 },
             });
 

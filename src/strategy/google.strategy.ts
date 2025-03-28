@@ -9,9 +9,9 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     super({
       clientID: configService.get<string>('GOOGLE_CLIENT_ID'),
       clientSecret: configService.get<string>('GOOGLE_SECRET'),
-      callbackURL: configService.get<string>('GOOGLE_CALLBACK_URL'), // Sửa lỗi 'callBackURL' thành 'callbackURL'
+      callbackURL: configService.get<string>('GOOGLE_CALLBACK_URL'),
       scope: ['email', 'profile'],
-      accessType: 'offline', // Lấy refreshToken
+      accessType: 'offline',
       prompt: 'select_account'
     });
   }
