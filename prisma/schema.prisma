@@ -51,9 +51,24 @@ model Board {
 
   Card      Card[]
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  UserBoardPreference UserBoardPreference[]
 
   @@map("boards")
+  Invite Invite[]
 }
+
+model UserBoardPreference {
+  id      String @id @default(uuid())
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId  String
+  board   Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  boardId String
+  starred Boolean @default(false)
+
+  @@unique([userId, boardId])
+  @@map("user_board_preferences")
+}
+
 
 model Column {
   id           String   @id @default(uuid())
@@ -130,6 +145,7 @@ model User {
   WorkspaceMember WorkspaceMember[]
 
   @@map("users")
+  UserBoardPreference UserBoardPreference[]
 }
 
 model BoardMember {
@@ -154,11 +170,13 @@ model CardMember {
 
 model Invite {
   id          String    @id @default(uuid())
-  workspaceId String
+  workspaceId String?
+  boardId     String?
   token       String    @unique
   expiresAt   DateTime
   createAt    DateTime  @default(now())
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  board       Board? @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@map("invite")
 }
