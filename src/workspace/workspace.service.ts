@@ -155,7 +155,7 @@ export class WorkspaceService {
             include: { members: true }
         })
         if (!workspace) {
-            throw new Error("workspace does not exist")
+            throw new NotFoundException("workspace does not exist")
         }
         if (userId === workspace.ownerId) {
             const newOwner = workspace.members.find(member => member.userId !== userId);

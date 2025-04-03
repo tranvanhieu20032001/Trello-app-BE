@@ -156,6 +156,75 @@ export class BoardsService {
         };
     }
 
+    async leaveBoard(boardId: string, userId: string) {
+        const board = await this.prisma.board.findUnique({
+            where: { id: boardId },
+            include: { BoardMembers: true }
+        })
+        if (!board) {
+            throw new Error("Board does not exist")
+        }
+        if (userId === board.ownerId) {
+            const newOwner = board.BoardMembers.find(m => m.userId !== userId)
+            if (newOwner) {
+                await this.prisma.board.update({
+                    where: { id: boardId },
+                    data: { ownerId: newOwner.userId }
+                })
+            } else {
+                await this.prisma.board.delete({
+                    where: { id: boardId }
+                })
+            }
+        }
+
+        await this.prisma.boardMember.delete({
+            where: {
+                boardId_userId: {
+                    boardId,
+                    userId
+                }
+            }
+        });
+
+        return {
+            success: true,
+            message: "The user has been successfully leave from board."
+        };
+    }
+
+    async removeMemberBoar(boardId: string, ownerId: string, userId: string) {
+        const board = await this.prisma.board.findUnique({
+            where: { id: boardId },
+            include: { BoardMembers: true }
+        })
+        if (!board) {
+            throw new NotFoundException("Workspace does not exist.");
+        }
+        if (board.ownerId !== ownerId) {
+            throw new ForbiddenException("Only the board owner can remove members.");
+        }
+
+        if (ownerId === userId) {
+            throw new BadRequestException("The owner cannot remove themselves from the board.");
+        }
+        const isMember = board.BoardMembers.some(member => member.userId === userId);
+
+        if (!isMember) {
+            throw new BadRequestException("User is not a member of this board.");
+        }
+        await this.prisma.boardMember.deleteMany({
+            where: {
+                boardId: boardId,
+                userId: userId
+            }
+        })
+        return {
+            success: true,
+            message: "The user has been successfully removed from board."
+        };
+    }
+
     // async toggleStared(userId: string, boardId: string) {
     //     const existing = await this.prisma.userBoardPreference.findUnique({
     //         where: { userId_boardId: { userId, boardId } }

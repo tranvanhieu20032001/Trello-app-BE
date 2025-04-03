@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Request, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Req, Request, UseGuards } from '@nestjs/common';
 import { BoardsService } from './boards.service';
 import { BoardDTO } from './dto/board.dto';
 import { JwtAuthGuard } from '../guard';
@@ -46,6 +46,18 @@ export class BoardsController {
     @Post('join')
     async joinWorkspace(@Body() body: { boardId, userId }) {
         return this.boardsService.addMember(body.boardId, body.userId)
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @Patch(':boardId/leave')
+    async leaveWorkspace(@Param('boardId') boardId: string, @Req() req) {
+        const userId = req.user.user.id;
+        return this.boardsService.leaveBoard(boardId, userId)
+    }
+
+    @Delete(":boardId/remove")
+    async removeUser(@Param("boardId") boardId: string, @Body() body: { ownerId: string, userId: string }) {
+        return await this.boardsService.removeMemberBoar(boardId, body.ownerId, body.userId)
     }
 
 }
