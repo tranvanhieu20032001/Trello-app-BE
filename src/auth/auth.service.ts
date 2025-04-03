@@ -32,9 +32,16 @@ export class AuthService {
                     username: true
                 }
             });
+            await this.prismaService.workspace.create({
+                data:{
+                    name: "Workspace default",
+                    ownerId: user.id,
+                    members: { create: { userId: user.id } },
+                }
+            })
 
             // Tạo token xác thực email
-            const { accessToken } = await this.signJwtToken(user.id, user.email, user.username);
+            const { accessToken } = await this.signJwtToken(user.id, user.email, user.username, '');
             await this.emailService.sendVerificationEmail(user.email, accessToken);
 
             return {
@@ -71,7 +78,7 @@ export class AuthService {
         }
         delete user.password;
 
-        const { accessToken, refreshToken } = await this.signJwtToken(user.id, user.email, user.username);
+        const { accessToken, refreshToken } = await this.signJwtToken(user.id, user.email, user.username,"");
         await this.updateRefreshToken(user.id, refreshToken);
         res.cookie('refreshToken', refreshToken, {
             httpOnly: true,
@@ -103,9 +110,17 @@ export class AuthService {
                     avatar: googleUser.avatar
                 }
             });
+
+            await this.prismaService.workspace.create({
+                data:{
+                    name: `Wp-${user.id.slice(0,4)}`,
+                    ownerId: user.id,
+                    members: { create: { userId: user.id } },
+                }
+            })
         }
 
-        const { accessToken, refreshToken } = await this.signJwtToken(user.id, user.email, user.username);
+        const { accessToken, refreshToken } = await this.signJwtToken(user.id, user.email, user.username, user.avatar);
 
         await this.updateRefreshToken(user.id, refreshToken);
 
@@ -186,7 +201,7 @@ export class AuthService {
         if (!isMatch) {
             throw new ForbiddenException('Invalid Refresh Token');
         }
-        const { accessToken, refreshToken: newRefreshToken } = await this.signJwtToken(user.id, user.email, user.username);
+        const { accessToken, refreshToken: newRefreshToken } = await this.signJwtToken(user.id, user.email, user.username,"");
         await this.updateRefreshToken(user.id, newRefreshToken);
         res.cookie('refreshToken', newRefreshToken, {
             httpOnly: true,
@@ -198,8 +213,8 @@ export class AuthService {
         return res.status(200).json({ accessToken });
     }
 
-    async signJwtToken(userId: string, email: string, username: string): Promise<{ accessToken: string, refreshToken: string }> {
-        const payload = { sub: userId, email, username };
+    async signJwtToken(userId: string, email: string, username: string, avatar:string): Promise<{ accessToken: string, refreshToken: string }> {
+        const payload = { sub: userId, email, username, avatar };
 
         const accessToken = await this.jwtService.signAsync(payload, {
             expiresIn: '1h',

@@ -32,13 +32,15 @@ model WorkspaceMember {
 model Board {
   id             String    @id @default(uuid())
   title          String
-  description    String?
+  background     String
   starred        Boolean   @default(false)
   type           String
   slug           String
-  ownerId        String // ID của người sở hữu
+  status         Boolean   @default(true)
+  ownerId        String
+  workspaceId    String
   startDate      DateTime?
-  columnOrderIds String[] // Lưu trữ danh sách ID của columns theo thứ tự
+  columnOrderIds String[]
   columns        Column[]
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
@@ -48,10 +50,25 @@ model Board {
   BoardMembers BoardMember[]
 
   Card      Card[]
-  Workspace Workspace[]
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  UserBoardPreference UserBoardPreference[]
 
   @@map("boards")
+  Invite Invite[]
 }
+
+model UserBoardPreference {
+  id      String @id @default(uuid())
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId  String
+  board   Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  boardId String
+  starred Boolean @default(false)
+
+  @@unique([userId, boardId])
+  @@map("user_board_preferences")
+}
+
 
 model Column {
   id           String   @id @default(uuid())
@@ -128,6 +145,7 @@ model User {
   WorkspaceMember WorkspaceMember[]
 
   @@map("users")
+  UserBoardPreference UserBoardPreference[]
 }
 
 model BoardMember {
@@ -151,12 +169,14 @@ model CardMember {
 }
 
 model Invite {
-  id          String   @id @default(uuid())
-  workspaceId String
-  token       String   @unique
+  id          String    @id @default(uuid())
+  workspaceId String?
+  boardId     String?
+  token       String    @unique
   expiresAt   DateTime
-  createAt    DateTime @default(now())
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createAt    DateTime  @default(now())
+  board       Board? @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@map("invite")
 }

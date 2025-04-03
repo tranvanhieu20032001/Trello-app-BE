@@ -10,6 +10,15 @@ export class WorkspaceService {
     async createWorkspace(userId: string, body: { title: string }) {
         try {
             await validateUser(this.prisma, userId);
+            const existingWorkspace = await this.prisma.workspace.findFirst({
+                where: {
+                    name: { equals: body.title, mode: "insensitive" },
+                }
+            })
+
+            if (existingWorkspace) {
+                throw new BadRequestException("A Workspace with this name already exists in the workspace.");
+            }
             const newWorkspace = await this.prisma.workspace.create({
                 data: {
                     name: body.title,
@@ -35,6 +44,21 @@ export class WorkspaceService {
                         { ownerId: userId },
                         { members: { some: { userId } } }
                     ]
+                }, include: {
+                    members: {
+                        include: {
+                            user: {
+                                include: {
+                                    boards: true
+                                }
+                            }
+                        }
+                    }, boards: {
+                        include: {
+                            UserBoardPreference: true,
+                            BoardMembers: true
+                        }
+                    }
                 }
             });
 
@@ -56,6 +80,11 @@ export class WorkspaceService {
                                 boards: true
                             }
                         }
+                    }
+                }, boards: {
+                    include: {
+                        UserBoardPreference: true,
+                        BoardMembers: true
                     }
                 }
             }
@@ -81,7 +110,6 @@ export class WorkspaceService {
                 workspaceId
             }
         });
-        this.workspaceGateway.sendNotification(workspaceId, `User ${userId} has joined the workspace`);
 
         return {
             message: 'Joined workspace successfully',
@@ -162,9 +190,6 @@ export class WorkspaceService {
             where: { id: workspaceId },
             include: { members: true },
         });
-        console.log("Workspace data:", workspace);
-        console.log("Members:", workspace?.members);
-        console.log("UserId to check:", userId);
 
         if (!workspace) {
             throw new NotFoundException("Workspace does not exist.");

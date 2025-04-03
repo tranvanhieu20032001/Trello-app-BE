@@ -5,8 +5,13 @@ export class BoardDTO{
     @IsNotEmpty()
     title:string
 
+    @IsNotEmpty()
     @IsString()
-    description?:string;
+    background?:string;
+
+    @IsNotEmpty()
+    @IsString()
+    workspaceId?:string;
 
     @IsString()
     type?:string;

@@ -1,7 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { WorkspaceService } from './workspace.service';
 import { JwtAuthGuard } from '../guard';
-import { query } from 'express';
 
 @Controller('api/v1/workspace')
 export class WorkspaceController {

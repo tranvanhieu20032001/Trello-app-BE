@@ -1,11 +1,11 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, Request, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Request, UseGuards } from '@nestjs/common';
 import { BoardsService } from './boards.service';
 import { BoardDTO } from './dto/board.dto';
 import { JwtAuthGuard } from '../guard';
 
 @Controller('api/v1/boards')
 export class BoardsController {
-    constructor(private boardsService: BoardsService) {}
+    constructor(private boardsService: BoardsService) { }
     @Get('/')
     getAllBoards() {
         return {
@@ -22,10 +22,30 @@ export class BoardsController {
     }
 
 
-    // @UseGuards(JwtAuthGuard)
+    @UseGuards(JwtAuthGuard)
     @Get('/:id')
-    async getBoardById(@Param('id') id:string){
-        return this.boardsService.getBoardById(id)
+    async getBoardById(@Param('id') id: string, @Request() req) {
+        const userId = req.user.user.id
+        return this.boardsService.getBoardById(id, userId)
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @Patch('/:id/close')
+    async closeBoard(@Param('id') id: string, @Request() req) {
+        const userId = req.user.user.id
+        return this.boardsService.closeBoard(id, userId)
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @Patch('/:id/reopen')
+    async reOpenBoard(@Param('id') id: string, @Request() req) {
+        const userId = req.user.user.id
+        return this.boardsService.reOpenBoard(id)
+    }
+
+    @Post('join')
+    async joinWorkspace(@Body() body: { boardId, userId }) {
+        return this.boardsService.addMember(body.boardId, body.userId)
     }
 
 }

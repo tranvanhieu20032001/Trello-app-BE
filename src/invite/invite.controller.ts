@@ -5,13 +5,18 @@ import { InviteService } from './invite.service';
 export class InviteController {
     constructor(private inviteService: InviteService) { }
 
-    @Post(":workspaceId")
-    async createInvite(@Param('workspaceId') workspaceId: string) {
-        return this.inviteService.createInvite(workspaceId)
+    @Post("wp/:workspaceId")
+    async createInviteToWorkspace(@Param('workspaceId') workspaceId: string) {
+        return this.inviteService.createInvite({ workspaceId: workspaceId });
+    }
+
+    @Post("b/:boardId")
+    async createInviteToBoard(@Param('boardId') boardId: string) {
+        return this.inviteService.createInvite({ boardId: boardId });
     }
 
     @Get(':token')
-    async verifyInvite(@Param('token') token:string){
+    async verifyInvite(@Param('token') token: string) {
         return this.inviteService.verifyInvite(token)
     }
 }
