@@ -150,6 +150,13 @@ export class BoardsService {
             }
         });
 
+        await this.prisma.userBoardPreference.create({
+            data: {
+                userId,
+                boardId
+            }
+        })
+
         return {
             message: 'Joined board successfully',
             data: boardMember
@@ -225,17 +232,87 @@ export class BoardsService {
         };
     }
 
-    // async toggleStared(userId: string, boardId: string) {
-    //     const existing = await this.prisma.userBoardPreference.findUnique({
-    //         where: { userId_boardId: { userId, boardId } }
-    //     })
-    //     if (existing) {
-    //         return this.prisma.userBoardPreference.update({
-    //             where: { id: existing.userId },
-    //             data: { starred:}
-    //         })
-    //     }
+    async changeVisibility(boardId: string, ownerId: string, visibility: string) {
+        await validateUser(this.prisma, ownerId);
+        const board = await this.prisma.board.findUnique({
+            where: { id: boardId }
+        })
+        if (ownerId !== board.ownerId) {
+            throw new ForbiddenException("User is not the owner of the board");
+        }
+        if (!board) throw new NotFoundException("Board not found")
+        return this.prisma.board.update({
+            where: { id: boardId },
+            data: { type: visibility }
+        })
+    }
 
-    // }
+    async changeTitleBoard(boardId: string, userId: string, newname: string) {
+        await validateUser(this.prisma, userId);
+        const board = await this.prisma.board.findUnique({
+            where: { id: boardId }
+        })
+
+        if (!board) throw new NotFoundException("Board not found")
+        if (board.ownerId !== userId) {
+            throw new ForbiddenException("User is not the owner of the board");
+        }
+        const existingTitle = await this.prisma.board.findFirst({
+            where: {
+                title: { equals: newname, mode: "insensitive" },
+            }
+        })
+
+        if (existingTitle) {
+            throw new BadRequestException("This board name already exists, please choose another one.");
+        }
+        return this.prisma.board.update({
+            where: { id: boardId },
+            data: { title: newname }
+        })
+    }
+
+    async toggleStarred(boardId: string, userId: string) {
+        await validateUser(this.prisma, userId);
+
+        const boardMember = await this.prisma.boardMember.findUnique({
+            where: {
+                boardId_userId: {
+                    boardId,
+                    userId
+                }
+            }
+        });
+
+        if (!boardMember) {
+            throw new ForbiddenException("User is not the member of the board");
+        }
+
+        const userPref = await this.prisma.userBoardPreference.findUnique({
+            where: {
+                userId_boardId: {
+                    userId,
+                    boardId
+                }
+            }
+        });
+
+        if (!userPref) {
+            throw new NotFoundException("User preference not found");
+        }
+
+        // Toggle giá trị starred
+        return this.prisma.userBoardPreference.update({
+            where: {
+                userId_boardId: {
+                    userId,
+                    boardId
+                }
+            },
+            data: {
+                starred: !userPref.starred
+            }
+        });
+    }
 
 }

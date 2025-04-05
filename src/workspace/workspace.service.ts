@@ -17,7 +17,7 @@ export class WorkspaceService {
             })
 
             if (existingWorkspace) {
-                throw new BadRequestException("A Workspace with this name already exists in the workspace.");
+                throw new BadRequestException("This workspace name already exists, please choose another one.");
             }
             const newWorkspace = await this.prisma.workspace.create({
                 data: {

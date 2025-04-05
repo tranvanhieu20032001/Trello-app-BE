@@ -50,7 +50,7 @@ export class BoardsController {
 
     @UseGuards(JwtAuthGuard)
     @Patch(':boardId/leave')
-    async leaveWorkspace(@Param('boardId') boardId: string, @Req() req) {
+    async leaveBoard(@Param('boardId') boardId: string, @Req() req) {
         const userId = req.user.user.id;
         return this.boardsService.leaveBoard(boardId, userId)
     }
@@ -58,6 +58,27 @@ export class BoardsController {
     @Delete(":boardId/remove")
     async removeUser(@Param("boardId") boardId: string, @Body() body: { ownerId: string, userId: string }) {
         return await this.boardsService.removeMemberBoar(boardId, body.ownerId, body.userId)
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @Patch(':boardId/visibility')
+    async changeVisibility(
+        @Param('boardId') boardId: string,
+        @Body('visibility') visibility: string,
+        @Req() req
+    ) {
+        const userId = req.user.user.id;
+        return this.boardsService.changeVisibility(boardId, userId, visibility);
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @Patch(':boardId/starred')
+    async toggleStarred(
+        @Param('boardId') boardId: string,
+        @Req() req
+    ) {
+        const userId = req.user.user.id;
+        return this.boardsService.toggleStarred(boardId, userId);
     }
 
 }
