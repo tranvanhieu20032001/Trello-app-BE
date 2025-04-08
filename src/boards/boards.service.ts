@@ -315,4 +315,16 @@ export class BoardsService {
         });
     }
 
+    async updateColumnOrder(boardId: string, columnOrderIds: string[]) {
+        const board = this.prisma.board.findUnique({
+            where: { id: boardId },
+        })
+        if (!board) throw new NotFoundException("Board not found")
+
+        await this.prisma.board.update({
+            where: { id: boardId },
+            data: { columnOrderIds: columnOrderIds }
+        })
+    }
+
 }

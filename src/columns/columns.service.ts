@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { ColumnDTO } from './dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { validateUser } from '../utils/validations';
@@ -46,5 +46,20 @@ export class ColumnsService {
             console.error("Error creating column:", error);
             throw new InternalServerErrorException(error.message)
         }
+    }
+
+    async updateOrderCardIds(colummId: string, cardOrderIds: string[]) {
+        console.log("colummId", colummId);
+        console.log("cardOrderIds", cardOrderIds);
+        
+        
+        const columnn = await this.prisma.column.findUnique({
+            where: { id: colummId }
+        })
+        if (!columnn) throw new NotFoundException("Column not found")
+        await this.prisma.column.update({
+            where: { id: colummId },
+            data: { cardOrderIds: cardOrderIds }
+        })
     }
 }

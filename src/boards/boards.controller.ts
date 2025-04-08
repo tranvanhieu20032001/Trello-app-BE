@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Req, Request, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Put, Req, Request, UseGuards } from '@nestjs/common';
 import { BoardsService } from './boards.service';
 import { BoardDTO } from './dto/board.dto';
 import { JwtAuthGuard } from '../guard';
@@ -80,5 +80,13 @@ export class BoardsController {
         const userId = req.user.user.id;
         return this.boardsService.toggleStarred(boardId, userId);
     }
+
+    @Put(":boardId/column/order")
+    async updateColumnOrder(
+        @Param('boardId') boardId: string,
+        @Body() body: { columnOrderIds: string[] }
+      ){
+        return this.boardsService.updateColumnOrder(boardId, body.columnOrderIds)
+      }
 
 }
