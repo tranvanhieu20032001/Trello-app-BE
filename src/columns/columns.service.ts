@@ -1,5 +1,5 @@
 import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
-import { ColumnDTO } from './dto';
+import { ColumnDTO, MoveCardBetweenColumnsDTO } from './dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { validateUser } from '../utils/validations';
 
@@ -49,10 +49,6 @@ export class ColumnsService {
     }
 
     async updateOrderCardIds(colummId: string, cardOrderIds: string[]) {
-        console.log("colummId", colummId);
-        console.log("cardOrderIds", cardOrderIds);
-        
-        
         const columnn = await this.prisma.column.findUnique({
             where: { id: colummId }
         })
@@ -61,5 +57,26 @@ export class ColumnsService {
             where: { id: colummId },
             data: { cardOrderIds: cardOrderIds }
         })
+    }
+
+    async updateCardOrderDifferentColumn(data: MoveCardBetweenColumnsDTO) {
+        const { activeCardId, oldColumnId, newColumnId, cardOrderIdsOldColumn, cardOrderIdsNewColumn } = data;
+
+        await this.prisma.column.update({
+            where: { id: oldColumnId },
+            data: { cardOrderIds: cardOrderIdsOldColumn }
+        })
+
+        await this.prisma.column.update({
+            where: { id: newColumnId },
+            data: { cardOrderIds: cardOrderIdsNewColumn },
+        });
+
+        await this.prisma.card.update({
+            where: { id: activeCardId },
+            data: { columnId: newColumnId },
+          });
+
+       
     }
 }
