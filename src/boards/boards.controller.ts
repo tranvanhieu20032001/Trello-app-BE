@@ -85,8 +85,15 @@ export class BoardsController {
     async updateColumnOrder(
         @Param('boardId') boardId: string,
         @Body() body: { columnOrderIds: string[] }
-      ){
+    ) {
         return this.boardsService.updateColumnOrder(boardId, body.columnOrderIds)
-      }
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @Put(":boardId/rename")
+    async changeTitleBoard(@Param('boardId') boardId: string, @Body() body: { newname: string }, @Req() req) {
+        const userId = req.user.user.id;
+        return this.boardsService.changeTitleBoard(boardId, userId, body.newname)
+    }
 
 }

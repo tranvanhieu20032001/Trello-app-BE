@@ -27,6 +27,8 @@ model WorkspaceMember {
   workspaceId String
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("workspace_member")
 }
 
 model Board {
@@ -45,30 +47,29 @@ model Board {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-
-  BoardMembers BoardMember[]
-
-  Card      Card[]
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner               User                  @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  BoardMembers        BoardMember[]
+  Card                Card[]
+  workspace           Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   UserBoardPreference UserBoardPreference[]
 
-  @@map("boards")
+  labels Label[]
   Invite Invite[]
+
+  @@map("boards")
 }
 
 model UserBoardPreference {
-  id      String @id @default(uuid())
-  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id      String  @id @default(uuid())
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId  String
-  board   Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  board   Board   @relation(fields: [boardId], references: [id], onDelete: Cascade)
   boardId String
   starred Boolean @default(false)
 
   @@unique([userId, boardId])
   @@map("user_board_preferences")
 }
-
 
 model Column {
   id           String   @id @default(uuid())
@@ -101,6 +102,8 @@ model Card {
 
   CardMembers CardMember[]
   User        User[]
+  labels      CardLabel[]
+  checklists  Checklist[]
 
   @@map("cards")
 }
@@ -142,10 +145,10 @@ model User {
   BoardMember  BoardMember[]
   CardMember   CardMember[] // Mối quan hệ với card
 
-  WorkspaceMember WorkspaceMember[]
+  WorkspaceMember     WorkspaceMember[]
+  UserBoardPreference UserBoardPreference[]
 
   @@map("users")
-  UserBoardPreference UserBoardPreference[]
 }
 
 model BoardMember {
@@ -164,19 +167,68 @@ model CardMember {
   card   Card   @relation(fields: [cardId], references: [id], onDelete: Cascade)
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@id([cardId, userId]) // Composite primary key
+  @@id([cardId, userId])
   @@map("card_members")
 }
 
 model Invite {
-  id          String    @id @default(uuid())
+  id          String     @id @default(uuid())
   workspaceId String?
   boardId     String?
-  token       String    @unique
+  token       String     @unique
   expiresAt   DateTime
-  createAt    DateTime  @default(now())
-  board       Board? @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  createAt    DateTime   @default(now())
+  board       Board?     @relation(fields: [boardId], references: [id], onDelete: Cascade)
   workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@map("invite")
+}
+
+model Label {
+  id        String      @id @default(uuid())
+  name      String
+  color     String
+  boardId   String
+  board     Board       @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  CardLabel CardLabel[]
+
+  @@unique([boardId, name])
+  @@map("labels")
+}
+
+model CardLabel {
+  cardId     String
+  card       Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  labelId    String
+  label      Label    @relation(fields: [labelId], references: [id], onDelete: Cascade)
+  assignedAt DateTime @default(now())
+
+  @@id([cardId, labelId])
+  @@map("card_labels")
+}
+
+model Checklist {
+  id        String          @id @default(uuid())
+  title     String
+  cardId    String
+  card      Card            @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  items     ChecklistItem[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@map("checklists")
+}
+
+model ChecklistItem {
+  id          String    @id @default(uuid())
+  text        String
+  isChecked   Boolean   @default(false)
+  checklistId String
+  checklist   Checklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("checklist_items")
 }

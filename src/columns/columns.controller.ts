@@ -9,7 +9,7 @@ export class ColumnsController {
 
     // @UseGuards(JwtAuthGuard)
     @Post()
-    async create(@Body() columnDTO: ColumnDTO, @Request() req) {
+    async create(@Body() columnDTO: ColumnDTO) {
         return this.columnsService.createColumn(columnDTO)
     }
 
@@ -19,7 +19,14 @@ export class ColumnsController {
     }
 
     @Put("/card/order")
-    async updateCardOrderDifferentColumn(@Body() data:MoveCardBetweenColumnsDTO) {
-      return this.columnsService.updateCardOrderDifferentColumn(data)
+    async updateCardOrderDifferentColumn(@Body() data: MoveCardBetweenColumnsDTO) {
+        return this.columnsService.updateCardOrderDifferentColumn(data)
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @Put(":boardId/rename")
+    async renameList(@Param("boardId") boardId: string, @Body() body: { newname: string }, @Request() req) {
+        const userId = req.user.user.id
+        return this.columnsService.renameList(boardId, userId, body.newname)
     }
 }

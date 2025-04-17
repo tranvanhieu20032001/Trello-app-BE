@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { ColumnDTO, MoveCardBetweenColumnsDTO } from './dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { validateUser } from '../utils/validations';
@@ -75,8 +75,45 @@ export class ColumnsService {
         await this.prisma.card.update({
             where: { id: activeCardId },
             data: { columnId: newColumnId },
-          });
-
-       
+        });
     }
+
+    async renameList(columnId: string, userId: string, newName: string) {
+        await validateUser(this.prisma, userId);
+      
+        const column = await this.prisma.column.findUnique({
+          where: { id: columnId },
+          include: {
+            board: true
+          }
+        });
+      
+        if (!column) throw new NotFoundException("List not found");
+      
+        if (column.board.ownerId !== userId) {
+          throw new ForbiddenException("You are not the owner of this board");
+        }
+
+        const existingColumn = await this.prisma.column.findFirst({
+          where: {
+            boardId: column.boardId,
+            title: newName,
+            NOT: {
+              id: columnId
+            }
+          }
+        });
+      
+        if (existingColumn) {
+          throw new BadRequestException("A list with this name already exists in the board");
+        }
+      
+        return await this.prisma.column.update({
+          where: { id: columnId },
+          data: {
+            title: newName
+          }
+        });
+      }
+      
 }

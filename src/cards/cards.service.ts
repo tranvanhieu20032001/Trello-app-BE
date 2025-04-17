@@ -43,14 +43,26 @@ export class CardsService {
                 data: { cardOrderIds: updateCardOrder }
             })
 
-            return{
-                success:true,
-                message:"Card created successfully",
-                data:newCard
+            return {
+                success: true,
+                message: "Card created successfully",
+                data: newCard
             }
         } catch (error) {
             console.error("error creating cards", error);
             throw new InternalServerErrorException(error.message)
         }
+    }
+
+    async moveCard(cardId: string, columnId: string) {
+        return this.prisma.card.update({
+            where: { id: cardId }, data: { columnId: columnId }
+        })
+    }
+
+    async uploadCoverCard(cardId: string, coverName: string) {
+        return this.prisma.card.update({
+            where: { id: cardId }, data: { cover: coverName }
+        })
     }
 }

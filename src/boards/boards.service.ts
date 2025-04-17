@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, InternalServerErrorException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from "../prisma/prisma.service";
 import { BoardDTO } from './dto';
-import { slugify } from '../utils/formatters';
+import { slugify } from '../utils/formatters/formatters';
 import { validateUser } from '../utils/validations';
 
 @Injectable()
@@ -53,7 +53,6 @@ export class BoardsService {
         }
     }
 
-
     async getBoardById(id: string, userId: string) {
         if (!id) {
             throw new BadRequestException('Invalid board ID');
@@ -93,7 +92,6 @@ export class BoardsService {
         };
     }
 
-
     async closeBoard(boardId: string, userId: string) {
         if (!boardId) {
             throw new BadRequestException('Invalid board ID');
@@ -132,7 +130,6 @@ export class BoardsService {
         };
 
     }
-
 
     async addMember(boardId: string, userId: string) {
         const existingMember = await this.prisma.boardMember.findFirst({
