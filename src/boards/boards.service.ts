@@ -64,7 +64,16 @@ export class BoardsService {
             include: {
                 columns: {
                     include: {
-                        cards: true,
+                        cards: {
+                            include: {
+                                labels: {
+                                    include: {
+                                        label: true
+                                    }
+                                }
+                            }
+                        }
+
                     }
                 },
                 UserBoardPreference: {
@@ -75,7 +84,7 @@ export class BoardsService {
                     include: {
                         user: true
                     }
-                }
+                }, labels: true
             }
         });
 
