@@ -10,10 +10,11 @@ import { CardsModule } from './cards/cards.module';
 import { WorkspaceModule } from './workspace/workspace.module';
 import { InviteModule } from './invite/invite.module';
 import { UploadModule } from './upload/upload.module';
+import { LabelsModule } from './labels/labels.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    AuthModule, UserModule, PrismaModule, EmailModule, BoardsModule, ColumnsModule, CardsModule, WorkspaceModule, InviteModule, UploadModule],
+    AuthModule, UserModule, PrismaModule, EmailModule, BoardsModule, ColumnsModule, CardsModule, WorkspaceModule, InviteModule, UploadModule, LabelsModule],
   controllers: [],
   providers: [],
 })

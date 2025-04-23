@@ -1,28 +1,49 @@
-import { Injectable } from "@nestjs/common";
-import { MessageBody, SubscribeMessage, WebSocketGateway, WebSocketServer } from "@nestjs/websockets";
+import { Logger } from "@nestjs/common";
+import { OnGatewayConnection, OnGatewayDisconnect, SubscribeMessage, WebSocketGateway, WebSocketServer } from "@nestjs/websockets";
 import { Server, Socket } from "socket.io";
+@WebSocketGateway({
+    cors: {
+        origin: '*',
+    },
+})
+export class WorkspaceGateway implements OnGatewayConnection, OnGatewayDisconnect {
+    private readonly logger = new Logger(WorkspaceGateway.name);
 
-@Injectable()
-@WebSocketGateway({ cors: { origin: "*" } })
-export class WorkspaceGateway {
     @WebSocketServer() server: Server;
+    private connectedClients: Map<string, Socket> = new Map();
 
-    sendNotification(workspaceId: string, message: string) {
-        this.server.to(workspaceId).emit('workspace_notification', { message });
+    afterInit() {
+        this.logger.log("Initialized")
     }
 
-    @SubscribeMessage('join_workspace')
-    handleJoin(@MessageBody() data: { userId: string; workspaceId: string }) {
-        this.sendNotification(data.workspaceId, `User ${data.userId} has joined workspace`);
+    handleConnection(client: Socket, ...args: any[]) {
+        this.connectedClients.set(client.id, client);
+        console.log(`Client connected:${client.id}`);
+    }
+    handleDisconnect(client: Socket) {
+        this.connectedClients.delete(client.id)
+        console.log(`Client disconnected: ${client.id}`);
+
     }
 
-    @SubscribeMessage('leave_workspace')
-    handleLeave(@MessageBody() data: { userId: string; workspaceId: string }) {
-        this.sendNotification(data.workspaceId, `User ${data.userId} has left workspace`);
+    @SubscribeMessage('joinWorkspace')
+    handleJoinWorkspace(client: Socket, workspaceId: string): void {
+        client.join(workspaceId);
+        // console.log(`Client ${client.id} joined workspace ${workspaceId}`);
     }
 
-    @SubscribeMessage('remove_workspace')
-    handleRemove(@MessageBody() data: { userId: string; workspaceId: string }) {
-        this.sendNotification(data.workspaceId, `User ${data.userId} was removed by admin`);
+    notifyNewMember(workspaceId: string, username: string) {
+        this.server.to(workspaceId).emit('new-member', username);
+        // this.logger.log(`Notified workspace ${workspaceId} about new member ${member}`);
+    }
+
+    notifyRemoveMember(workspaceId: string, username: string) {
+        this.server.to(workspaceId).emit("remove-member", username);
+
+    }
+
+    notifyLeaveMember(workspaceId: string, username: string) {
+        this.server.to(workspaceId).emit("leave-member", username);
+
     }
 }

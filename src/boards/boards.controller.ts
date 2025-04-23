@@ -57,7 +57,7 @@ export class BoardsController {
 
     @Delete(":boardId/remove")
     async removeUser(@Param("boardId") boardId: string, @Body() body: { ownerId: string, userId: string }) {
-        return await this.boardsService.removeMemberBoar(boardId, body.ownerId, body.userId)
+        return await this.boardsService.removeMemberBoard(boardId, body.ownerId, body.userId)
     }
 
     @UseGuards(JwtAuthGuard)

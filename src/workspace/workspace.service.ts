@@ -110,6 +110,10 @@ export class WorkspaceService {
                 workspaceId
             }
         });
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId }
+        })
+        this.workspaceGateway.notifyNewMember(workspaceId, user.username);
 
         return {
             message: 'Joined workspace successfully',
@@ -178,6 +182,11 @@ export class WorkspaceService {
                 userId: userId
             }
         })
+
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId }
+        })
+        this.workspaceGateway.notifyLeaveMember(workspaceId, user.username)
         return {
             success: true,
             message: "You have successfully left the workspace."
@@ -214,6 +223,11 @@ export class WorkspaceService {
                 userId: userId
             }
         });
+
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId }
+        })
+        this.workspaceGateway.notifyRemoveMember(workspaceId, user.username)
 
         return {
             success: true,

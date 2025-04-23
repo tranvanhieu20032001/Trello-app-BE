@@ -3,10 +3,11 @@ import { PrismaService } from "../prisma/prisma.service";
 import { BoardDTO } from './dto';
 import { slugify } from '../utils/formatters/formatters';
 import { validateUser } from '../utils/validations';
+import { BoardGateway } from '../gateways/board.gateway';
 
 @Injectable()
 export class BoardsService {
-    constructor(private prisma: PrismaService) { }
+    constructor(private prisma: PrismaService, private boardGateway: BoardGateway) { }
 
     async createBoard(boardDTO: BoardDTO, userId: string) {
         try {
@@ -163,6 +164,11 @@ export class BoardsService {
             }
         })
 
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId }
+        })
+        this.boardGateway.notifyNewMember(boardId, user.username)
+
         return {
             message: 'Joined board successfully',
             data: boardMember
@@ -200,13 +206,25 @@ export class BoardsService {
             }
         });
 
+        await this.prisma.userBoardPreference.deleteMany({
+            where: {
+                boardId,
+                userId
+            }
+        });
+
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId }
+        })
+        this.boardGateway.notifyLeaveMember(boardId, user.username)
+
         return {
             success: true,
             message: "The user has been successfully leave from board."
         };
     }
 
-    async removeMemberBoar(boardId: string, ownerId: string, userId: string) {
+    async removeMemberBoard(boardId: string, ownerId: string, userId: string) {
         const board = await this.prisma.board.findUnique({
             where: { id: boardId },
             include: { BoardMembers: true }
@@ -232,6 +250,19 @@ export class BoardsService {
                 userId: userId
             }
         })
+
+        await this.prisma.userBoardPreference.deleteMany({
+            where: {
+                boardId,
+                userId
+            }
+        });
+
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId }
+        })
+        this.boardGateway.notifyRemoveMember(boardId, user.username)
+
         return {
             success: true,
             message: "The user has been successfully removed from board."
