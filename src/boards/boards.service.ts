@@ -71,6 +71,12 @@ export class BoardsService {
                                     include: {
                                         label: true
                                     }
+                                },
+                                checklists: {
+                                    include: { items: true }
+                                },
+                                CardMembers: {
+                                    include: { user: true }
                                 }
                             }
                         }
@@ -362,6 +368,7 @@ export class BoardsService {
             where: { id: boardId },
             data: { columnOrderIds: columnOrderIds }
         })
+        this.boardGateway.updateColumnOrder(boardId)
     }
 
 }

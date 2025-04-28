@@ -90,13 +90,15 @@ model Card {
   description String?
   cover       String?
   startDate   DateTime?
+  dueDate     DateTime?
+  isComplete  Boolean?  @default(false)
   columnId    String
   boardId     String
   column      Column    @relation(fields: [columnId], references: [id], onDelete: Cascade)
   board       Board     @relation(fields: [boardId], references: [id], onDelete: Cascade)
 
-  comments    Comment[] // Thay vì String[]
-  attachments Attachment[] // Thay vì String[]
+  comments    Comment[]
+  attachments Attachment[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 

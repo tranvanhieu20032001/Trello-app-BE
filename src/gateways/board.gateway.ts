@@ -32,6 +32,11 @@ export class BoardGateway implements OnGatewayConnection, OnGatewayDisconnect {
         client.join(boardId);
     }
 
+    
+    notifyBoard(boardId: string) {
+        this.server.to(boardId).emit("notify");
+    }
+
     notifyNewMember(boardId: string, username: string) {
         this.server.to(boardId).emit('new-member', username);
     }
@@ -44,5 +49,9 @@ export class BoardGateway implements OnGatewayConnection, OnGatewayDisconnect {
     notifyLeaveMember(boardId: string, username: string) {
         this.server.to(boardId).emit("leave-member", username);
 
+    }
+
+    updateColumnOrder(boardId: string) {
+        this.server.to(boardId).emit("updateColumnOrder");
     }
 }

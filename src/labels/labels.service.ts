@@ -1,10 +1,11 @@
 import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { LabelDTO } from './dto';
+import { BoardGateway } from '../gateways/board.gateway';
 
 @Injectable()
 export class LabelsService {
-    constructor(private prisma: PrismaService) { }
+    constructor(private prisma: PrismaService, private boardGateway: BoardGateway) { }
 
     async createLabel(labelDTO: LabelDTO) {
         const { boardId, name, color } = labelDTO;
@@ -16,6 +17,8 @@ export class LabelsService {
         if (!board) {
             throw new NotFoundException("Board not found");
         }
+
+        this.boardGateway.notifyBoard(boardId)
 
         return this.prisma.label.create({
             data: {
