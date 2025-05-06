@@ -77,7 +77,9 @@ export class BoardsService {
                                 },
                                 CardMembers: {
                                     include: { user: true }
-                                }
+                                },
+                                attachments: true,
+                                comments: { include: { user: true } }
                             }
                         }
 

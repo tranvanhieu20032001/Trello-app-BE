@@ -114,8 +114,10 @@ model Comment {
   id        String   @id @default(uuid())
   content   String
   cardId    String
-  card      Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  userId    String
   createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  card      Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
 
   @@map("comments")
 }
@@ -124,6 +126,8 @@ model Attachment {
   id        String   @id @default(uuid())
   fileUrl   String
   cardId    String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   card      Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
 
@@ -149,6 +153,8 @@ model User {
 
   WorkspaceMember     WorkspaceMember[]
   UserBoardPreference UserBoardPreference[]
+  Comment             Comment[]
+  Attachment          Attachment[]
 
   @@map("users")
 }

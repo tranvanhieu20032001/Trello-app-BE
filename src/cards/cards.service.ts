@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, InternalServerErrorException, NotFoundException, UseGuards } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { cardDTO } from './dto/card.dto';
 import { CardGateway } from '../gateways/card.gateway';
@@ -304,5 +304,89 @@ export class CardsService {
 
         return { message: "Removed member successfully" };
     }
+
+    // async uploadAttachment(cardId: string, coverName: string) {
+    //     this.cardGateway.notifyCard(cardId)
+    //     return this.prisma.card.update({
+    //         where: { id: cardId }, data: { cover: coverName }
+    //     })
+    // }
+
+    async uploadAttachmentPath(cardId: string, filePaths: string[], userId:string) {
+        const attachments = filePaths.map((fileUrl) => ({
+            fileUrl,
+            cardId,
+            userId
+        }));
+        await this.prisma.attachment.createMany({
+            data: attachments,
+        });
+
+        return { message: 'Attachments uploaded successfully' };
+    }
+
+    async uploadDescripton(cardId: string, content: string) {
+        const card = this.prisma.card.findUnique({
+            where: { id: cardId }
+        })
+
+        if (!card) {
+            throw new NotFoundException("Card not found");
+        }
+        await this.prisma.card.update({
+            where: { id: cardId },
+            data: { description: content }
+        })
+    }
+
+    async addComments(cardId: string, content: string, userId: string) {
+        return this.prisma.comment.create({
+          data: {
+            cardId,
+            content,
+            userId
+          },
+        });
+      }
+      
+
+      async editComment(commentId: string, newContent: string, userId: string) {
+        const comment = await this.prisma.comment.findUnique({
+          where: { id: commentId },
+        });
+      
+        if (!comment) {
+          throw new NotFoundException('Comment not found');
+        }
+      
+        if (comment.userId !== userId) {
+          throw new ForbiddenException('You can only edit your own comment');
+        }
+      
+        return this.prisma.comment.update({
+          where: { id: commentId },
+          data: { content: newContent },
+        });
+      }
+      
+
+      async deleteComment(commentId: string, userId: string) {
+        const comment = await this.prisma.comment.findUnique({
+          where: { id: commentId },
+        });
+      
+        if (!comment) {
+          throw new NotFoundException('Comment not found');
+        }
+      
+        if (comment.userId !== userId) {
+          throw new ForbiddenException('You can only delete your own comment');
+        }
+      
+        return this.prisma.comment.delete({
+          where: { id: commentId },
+        });
+      }
+      
 
 }

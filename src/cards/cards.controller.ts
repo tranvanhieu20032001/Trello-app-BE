@@ -3,6 +3,7 @@ import { CardsService } from './cards.service';
 import { JwtAuthGuard } from '../guard';
 import { cardDTO } from './dto/card.dto';
 
+
 @Controller('api/v1/cards')
 export class CardsController {
     constructor(private cardService: CardsService) { }
@@ -22,6 +23,14 @@ export class CardsController {
     @Put(':id/cover')
     async uploadCover(@Param('id') cardId: string, @Body() body: { filename: string }) {
         return this.cardService.uploadCoverCard(cardId, body.filename)
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @Put(':id/attachment')
+    async uploadAttachment(@Param('id') cardId: string, @Body() body: { filePaths: string[] }, @Request() req) {
+        const userId = req.user.user.id
+        return this.cardService.uploadAttachmentPath(cardId, body.filePaths, userId)
+
     }
 
     @Post(':id/checklist')
@@ -78,8 +87,44 @@ export class CardsController {
 
     @Patch(':id/member')
     async remove(@Param('id') cardId: string, @Body() body: { userId }) {
-        console.log("userId", body.userId);
-        
         return this.cardService.removeMemberFromCard(cardId, body.userId)
     }
+
+    @Put("/:id/description")
+    async uploadDescription(@Param("id") cardId: string, @Body() body: { content }) {
+        return this.cardService.uploadDescripton(cardId, body.content)
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @Post(":id/comment")
+    async addComment(
+        @Param("id") cardId: string,
+        @Body() body: { content: string },
+        @Request() req
+    ) {
+        const userId = req.user.user.id;
+        return this.cardService.addComments(cardId, body.content, userId);
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @Patch("comment/:commentId")
+    async updateComment(
+        @Param("commentId") commentId: string,
+        @Body() body: { content: string },
+        @Request() req
+    ) {
+        const userId = req.user.user.id;
+        return this.cardService.editComment(commentId, body.content, userId);
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @Delete("comment/:commentId")
+    async deleteComment(
+        @Param("commentId") commentId: string,
+        @Request() req
+    ) {
+        const userId = req.user.user.id;
+        return this.cardService.deleteComment(commentId, userId);
+    }
+
 }

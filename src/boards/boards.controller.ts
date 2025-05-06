@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Put, Req, Request, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Req, Request, UseGuards } from '@nestjs/common';
 import { BoardsService } from './boards.service';
 import { BoardDTO } from './dto/board.dto';
 import { JwtAuthGuard } from '../guard';
