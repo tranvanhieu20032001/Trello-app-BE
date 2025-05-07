@@ -3,12 +3,13 @@ import { PrismaService } from '../prisma/prisma.service';
 import { cardDTO } from './dto/card.dto';
 import { CardGateway } from '../gateways/card.gateway';
 import { ColumnGateway } from '../gateways/column.gateway';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class CardsService {
     constructor(private prisma: PrismaService, private cardGateway: CardGateway, private columnGateway: ColumnGateway) { }
 
-    async createCard(cardDTO: cardDTO) {
+    async createCard(cardDTO: cardDTO, userId: string) {
         try {
 
             const newCard = await this.prisma.card.create({
@@ -29,7 +30,7 @@ export class CardsService {
 
             const column = await this.prisma.column.findUnique({
                 where: { id: cardDTO.columnId },
-                select: { cardOrderIds: true }
+                select: { cardOrderIds: true, title: true }
             })
             if (!column) {
                 throw new Error("Column not found");
@@ -39,6 +40,17 @@ export class CardsService {
             await this.prisma.column.update({
                 where: { id: cardDTO.columnId },
                 data: { cardOrderIds: updateCardOrder }
+            })
+
+            await this.prisma.activity.create({
+                data: {
+                    action: "CARD_CREATED",
+                    data: {
+                        columnTitle: column?.title
+                    },
+                    cardId: newCard.id,
+                    userId: userId
+                }
             })
             this.columnGateway.notifyColumn(cardDTO.columnId)
 
@@ -51,6 +63,15 @@ export class CardsService {
             console.error("error creating cards", error);
             throw new InternalServerErrorException(error.message)
         }
+    }
+
+    async updateCardTitle(cardId: string, newTitle: string) {
+        await this.prisma.card.update({
+            where: { id: cardId },
+            data: {
+                title: newTitle
+            }
+        })
     }
 
     async moveCard(cardId: string, columnId: string) {
@@ -171,7 +192,7 @@ export class CardsService {
 
     }
 
-    async completeCard(cardId: string, iscomplete: boolean) {
+    async completeCard(cardId: string, iscomplete: boolean, userId: string) {
         const card = await this.prisma.card.findUnique({
             where: { id: cardId }
         })
@@ -183,6 +204,23 @@ export class CardsService {
                 isComplete: iscomplete
             }
         })
+        if (iscomplete) {
+            await this.prisma.activity.create({
+                data: {
+                    action: "COMPLETE_CARD",
+                    cardId: cardId,
+                    userId: userId
+                }
+            })
+        } else {
+            await this.prisma.activity.create({
+                data: {
+                    action: "INCOMPLETE_CARD",
+                    cardId: cardId,
+                    userId: userId
+                }
+            })
+        }
         this.cardGateway.notifyCard(cardId)
     }
 
@@ -232,6 +270,13 @@ export class CardsService {
                 },
             });
         }
+        await this.prisma.activity.create({
+            data: {
+                action: "JOINED_CARD",
+                cardId: cardId,
+                userId: userId
+            }
+        })
         this.cardGateway.notifyCard(cardId)
         return { message: "Joined card successfully" };
     }
@@ -249,12 +294,20 @@ export class CardsService {
                 }
             }
         })
+
+        await this.prisma.activity.create({
+            data: {
+                action: "LEAVED_CARD",
+                cardId: cardId,
+                userId: userId
+            }
+        })
         this.cardGateway.notifyCard(cardId)
 
         return { message: "Leave card successfully" };
     }
 
-    async addMemberToCard(cardId: string, userId: string) {
+    async addMemberToCard(cardId: string, userId: string, ownerId: string) {
         const card = await this.prisma.card.findUnique({
             where: { id: cardId },
         });
@@ -271,6 +324,27 @@ export class CardsService {
             await this.prisma.cardMember.create({
                 data: { cardId, userId },
             });
+        }
+        if (ownerId === userId) {
+            await this.prisma.activity.create({
+                data: {
+                    action: "JOINED_CARD",
+                    cardId: cardId,
+                    userId: userId
+                }
+            })
+        } else {
+            const user = await this.prisma.user.findUnique({ where: { id: userId } })
+            await this.prisma.activity.create({
+                data: {
+                    action: "ADD_MEMBER",
+                    data: {
+                        memberName: user?.username
+                    },
+                    cardId: cardId,
+                    userId: ownerId
+                }
+            })
         }
         this.cardGateway.notifyCard(cardId)
 
@@ -305,14 +379,7 @@ export class CardsService {
         return { message: "Removed member successfully" };
     }
 
-    // async uploadAttachment(cardId: string, coverName: string) {
-    //     this.cardGateway.notifyCard(cardId)
-    //     return this.prisma.card.update({
-    //         where: { id: cardId }, data: { cover: coverName }
-    //     })
-    // }
-
-    async uploadAttachmentPath(cardId: string, filePaths: string[], userId:string) {
+    async uploadAttachmentPath(cardId: string, filePaths: string[], userId: string) {
         const attachments = filePaths.map((fileUrl) => ({
             fileUrl,
             cardId,
@@ -321,6 +388,20 @@ export class CardsService {
         await this.prisma.attachment.createMany({
             data: attachments,
         });
+
+        const activities = filePaths.map((filePath) => ({
+            action: "UPLOAD_ATTACHMENT",
+            data: {
+                fileName: filePath.split("\\").pop(),
+            },
+            cardId,
+            userId,
+        }));
+
+        await this.prisma.activity.createMany({
+            data: activities,
+        });
+
 
         return { message: 'Attachments uploaded successfully' };
     }
@@ -341,52 +422,51 @@ export class CardsService {
 
     async addComments(cardId: string, content: string, userId: string) {
         return this.prisma.comment.create({
-          data: {
-            cardId,
-            content,
-            userId
-          },
+            data: {
+                cardId,
+                content,
+                userId
+            },
         });
-      }
-      
+        
+    }
 
-      async editComment(commentId: string, newContent: string, userId: string) {
+    async editComment(commentId: string, newContent: string, userId: string) {
         const comment = await this.prisma.comment.findUnique({
-          where: { id: commentId },
+            where: { id: commentId },
         });
-      
+
         if (!comment) {
-          throw new NotFoundException('Comment not found');
+            throw new NotFoundException('Comment not found');
         }
-      
+
         if (comment.userId !== userId) {
-          throw new ForbiddenException('You can only edit your own comment');
+            throw new ForbiddenException('You can only edit your own comment');
         }
-      
+
         return this.prisma.comment.update({
-          where: { id: commentId },
-          data: { content: newContent },
+            where: { id: commentId },
+            data: { content: newContent },
         });
-      }
-      
+    }
 
-      async deleteComment(commentId: string, userId: string) {
+    async deleteComment(commentId: string, userId: string) {
         const comment = await this.prisma.comment.findUnique({
-          where: { id: commentId },
+            where: { id: commentId },
         });
-      
+
         if (!comment) {
-          throw new NotFoundException('Comment not found');
+            throw new NotFoundException('Comment not found');
         }
-      
+
         if (comment.userId !== userId) {
-          throw new ForbiddenException('You can only delete your own comment');
+            throw new ForbiddenException('You can only delete your own comment');
         }
-      
+
         return this.prisma.comment.delete({
-          where: { id: commentId },
+            where: { id: commentId },
         });
-      }
-      
+    }
+
 
 }

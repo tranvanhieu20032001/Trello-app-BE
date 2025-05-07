@@ -5,45 +5,47 @@ import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class UploadService {
-    constructor(private prisma: PrismaService) { }
-    handleFileUpload(file: Express.Multer.File) {
-        if (!file) {
-            throw new BadRequestException('no file uploaded');
-        }
-
-        return this.validateAndProcessFile(file);
+  constructor(private prisma: PrismaService) { }
+  handleFileUpload(file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('no file uploaded');
     }
 
-    handleMultipleFileUpload(files: Array<Express.Multer.File>) {
-        if (!files || files.length === 0) {
-            throw new BadRequestException('no files uploaded');
-        }
+    return this.validateAndProcessFile(file);
+  }
 
-        return files.map(file => this.validateAndProcessFile(file));
+  handleMultipleFileUpload(files: Array<Express.Multer.File>) {
+    if (!files || files.length === 0) {
+      throw new BadRequestException('no files uploaded');
     }
 
-    private validateAndProcessFile(file: Express.Multer.File) {
-        const allowedMimeTypes = [
-            'image/jpeg',
-            'image/png',
-            'application/pdf',
-            'application/msword',
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'text/plain'
-        ];
-        if (!allowedMimeTypes.includes(file.mimetype)) {
-            throw new BadRequestException('invalid file type');
-        }
+    return files.map(file => this.validateAndProcessFile(file));
+  }
 
-        const maxSize = 5 * 1024 * 1024;
-        if (file.size > maxSize) {
-            throw new BadRequestException('file is too large!');
-        }
-
-        return { message: 'File uploaded successfully', filePath: file.path };
+  private validateAndProcessFile(file: Express.Multer.File) {
+    const allowedMimeTypes = [
+      'image/jpeg',
+      'image/png',
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'text/plain'
+    ];
+    if (!allowedMimeTypes.includes(file.mimetype)) {
+      throw new BadRequestException('invalid file type');
     }
 
-   
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      throw new BadRequestException('file is too large!');
+    }
+
+    return { message: 'File uploaded successfully', filePath: file.path };
+  }
+
+
   async deleteAttachment(fileUrl: string, id: string, userId: string) {
     const attachment = await this.prisma.attachment.findUnique({ where: { id } });
 
@@ -52,8 +54,17 @@ export class UploadService {
 
     await this.prisma.attachment.delete({ where: { id } });
 
-    const parsedFilename = path.basename(fileUrl); // lấy đúng tên file
-    console.log('Parsed filename:', parsedFilename);
+    const parsedFilename = path.basename(fileUrl);
+    await this.prisma.activity.create({
+      data: {
+        action: "DELETE_ATTACHMENT",
+        data: {
+          fileName: parsedFilename
+        },
+        cardId: attachment?.cardId,
+        userId: userId
+      }
+    })
 
     const folders = [
       path.resolve(process.cwd(), 'uploads', 'attachment', 'images'),

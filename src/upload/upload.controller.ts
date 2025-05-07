@@ -54,7 +54,8 @@ export class UploadController {
             storage: diskStorage({
                 destination: (req, file, cb) => {
                     let folder = "./uploads/attachment/images"
-                    if (['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'].includes(file.mimetype)) {
+                    if (['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.ms-excel',
+                        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'text/plain'].includes(file.mimetype)) {
                         folder = './uploads/attachment/docs';
                     }
                     ensureDir(folder);

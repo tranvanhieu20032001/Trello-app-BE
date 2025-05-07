@@ -72,14 +72,15 @@ model UserBoardPreference {
 }
 
 model Column {
-  id           String   @id @default(uuid())
+  id           String     @id @default(uuid())
   title        String
   boardId      String
-  board        Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  board        Board      @relation(fields: [boardId], references: [id], onDelete: Cascade)
   cardOrderIds String[] // Lưu danh sách ID của cards theo thứ tự
   cards        Card[]
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  Activity     Activity[]
 
   @@map("columns")
 }
@@ -106,6 +107,7 @@ model Card {
   User        User[]
   labels      CardLabel[]
   checklists  Checklist[]
+  Activity    Activity[]
 
   @@map("cards")
 }
@@ -155,6 +157,7 @@ model User {
   UserBoardPreference UserBoardPreference[]
   Comment             Comment[]
   Attachment          Attachment[]
+  Activity            Activity[]
 
   @@map("users")
 }
@@ -239,4 +242,17 @@ model ChecklistItem {
   updatedAt   DateTime  @updatedAt
 
   @@map("checklist_items")
+}
+
+model Activity {
+  id       String   @id @default(uuid())
+  action   String
+  data     Json?
+  cardId   String
+  columnId String?
+  userId   String
+  createAt DateTime @default(now())
+  user     User     @relation(fields: [userId], references: [id])
+  card     Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  column   Column?  @relation(fields: [columnId], references: [id], onDelete: Cascade)
 }

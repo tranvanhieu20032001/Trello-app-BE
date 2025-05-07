@@ -8,10 +8,17 @@ import { cardDTO } from './dto/card.dto';
 export class CardsController {
     constructor(private cardService: CardsService) { }
 
-    // @UseGuards(JwtAuthGuard)
+    @UseGuards(JwtAuthGuard)
     @Post()
     async create(@Body() cardDTO: cardDTO, @Request() req) {
-        return this.cardService.createCard(cardDTO) //req.user.user.id//)
+        const userId = req.user.user.id
+        return this.cardService.createCard(cardDTO, userId)
+    }
+
+    
+    @Put(":cardId/rename")
+    async rename(@Param("cardId") cardId: string, @Body() body: { newTitle: string }) {
+        return this.cardService.updateCardTitle(cardId, body.newTitle)
     }
 
     @Put('move')
@@ -62,9 +69,12 @@ export class CardsController {
     async editDates(@Param("id") cardId: string, @Body() body: { start, due }) {
         return this.cardService.editDates(cardId, body.start, body.due)
     }
+
+    @UseGuards(JwtAuthGuard)
     @Post(":id/complete")
-    async complete(@Param("id") cardId: string, @Body() body: { iscomplete }) {
-        return this.cardService.completeCard(cardId, body.iscomplete)
+    async complete(@Param("id") cardId: string, @Body() body: { iscomplete }, @Request() req) {
+        const userId = req.user.user.id
+        return this.cardService.completeCard(cardId, body.iscomplete, userId)
     }
 
     @UseGuards(JwtAuthGuard)
@@ -80,9 +90,12 @@ export class CardsController {
         const userId = req.user.user.id
         return this.cardService.leaveCard(cardId, userId)
     }
+
+    @UseGuards(JwtAuthGuard)
     @Post(':id/member')
-    async add(@Param('id') cardId: string, @Body() body: { userId }) {
-        return this.cardService.addMemberToCard(cardId, body.userId)
+    async add(@Param('id') cardId: string, @Body() body: { userId }, @Request() req) {
+        const ownerId = req.user.user.id
+        return this.cardService.addMemberToCard(cardId, body.userId, ownerId)
     }
 
     @Patch(':id/member')

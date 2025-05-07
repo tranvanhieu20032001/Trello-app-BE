@@ -79,7 +79,8 @@ export class BoardsService {
                                     include: { user: true }
                                 },
                                 attachments: true,
-                                comments: { include: { user: true } }
+                                comments: { include: { user: true } },
+                                Activity: { include: { user: true } }
                             }
                         }
 
