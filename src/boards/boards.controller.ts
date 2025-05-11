@@ -40,7 +40,13 @@ export class BoardsController {
     @Patch('/:id/reopen')
     async reOpenBoard(@Param('id') id: string, @Request() req) {
         const userId = req.user.user.id
-        return this.boardsService.reOpenBoard(id)
+        return this.boardsService.reOpenBoard(id, userId)
+    }
+    @UseGuards(JwtAuthGuard)
+    @Delete('/:id')
+    async deleteBoard(@Param('id') id: string, @Request() req) {
+        const userId = req.user.user.id
+        return this.boardsService.deleteBoard(id, userId)
     }
 
     @Post('join')

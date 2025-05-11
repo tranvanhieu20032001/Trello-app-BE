@@ -13,4 +13,24 @@ export class UserService {
         });
         return user
     }
+
+    async getNotifications(userId: string) {
+        await validateUser(this.prisma, userId);
+        const notifications = await this.prisma.notification.findMany({
+            where: { targetUserId: userId },
+            orderBy: { createdAt: 'desc' },
+            include: {
+                actor: {
+                    select: {
+                        id: true,
+                        username: true,
+                        avatar: true,
+                    },
+                },
+            }
+        })
+        return notifications
+    }
+
+    
 }

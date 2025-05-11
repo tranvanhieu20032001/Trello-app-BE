@@ -113,13 +113,14 @@ model Card {
 }
 
 model Comment {
-  id        String   @id @default(uuid())
-  content   String
-  cardId    String
-  userId    String
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  card      Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  id           String         @id @default(uuid())
+  content      String
+  cardId       String
+  userId       String
+  createdAt    DateTime       @default(now())
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  card         Card           @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  Notification Notification[]
 
   @@map("comments")
 }
@@ -158,6 +159,7 @@ model User {
   Comment             Comment[]
   Attachment          Attachment[]
   Activity            Activity[]
+  Notification        Notification[]
 
   @@map("users")
 }
@@ -245,14 +247,44 @@ model ChecklistItem {
 }
 
 model Activity {
-  id       String   @id @default(uuid())
-  action   String
+  id       String         @id @default(uuid())
+  action   ActivityAction
   data     Json?
   cardId   String
   columnId String?
   userId   String
-  createAt DateTime @default(now())
-  user     User     @relation(fields: [userId], references: [id])
-  card     Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
-  column   Column?  @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  createAt DateTime       @default(now())
+  user     User           @relation(fields: [userId], references: [id])
+  card     Card           @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  column   Column?        @relation(fields: [columnId], references: [id], onDelete: Cascade)
+}
+
+enum ActivityAction {
+  CARD_CREATED
+  JOINED_CARD
+  LEAVED_CARD
+  ADD_MEMBER
+  COMPLETE_CARD
+  INCOMPLETE_CARD
+  UPLOAD_ATTACHMENT
+  DELETE_ATTACHMENT
+}
+
+model Notification {
+  id           String           @id @default(uuid())
+  type         NotificationType
+  commentId    String?
+  data         Json?
+  isRead       Boolean          @default(false)
+  actorId      String
+  targetUserId String
+  createdAt    DateTime         @default(now())
+  actor        User             @relation(fields: [actorId], references: [id])
+  comment      Comment?         @relation(fields: [commentId], references: [id])
+}
+
+enum NotificationType {
+  TAGGED_IN_COMMENT
+  ADDED_TO_CARD
+  REMOVED_FROM_CARD
 }

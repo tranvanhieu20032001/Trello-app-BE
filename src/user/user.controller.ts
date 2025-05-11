@@ -12,4 +12,10 @@ export class UserController {
         return this.userService.getMe(req.user.user.id)
     }
 
+    @UseGuards(AuthGuard('jwt'))
+    @Get('notifications')
+    async getNotifications(@Request() req) {
+        return this.userService.getNotifications(req.user.user.id)
+    }
+
 }

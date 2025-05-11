@@ -1,11 +1,11 @@
 import { BadRequestException, ForbiddenException, HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { validateUser } from '../utils/validations';
-import { WorkspaceGateway } from '../gateways/workspace.gateway';
+import { AppGateway } from '../gateways/app.gateway';
 
 @Injectable()
 export class WorkspaceService {
-    constructor(private prisma: PrismaService, private readonly workspaceGateway: WorkspaceGateway) { }
+    constructor(private prisma: PrismaService, private readonly appGateway: AppGateway) { }
 
     async createWorkspace(userId: string, body: { title: string }) {
         try {
@@ -113,7 +113,8 @@ export class WorkspaceService {
         const user = await this.prisma.user.findUnique({
             where: { id: userId }
         })
-        this.workspaceGateway.notifyNewMember(workspaceId, user.username);
+
+        this.appGateway.notifyNewMember("workspace",workspaceId, user.username)
 
         return {
             message: 'Joined workspace successfully',
@@ -186,7 +187,9 @@ export class WorkspaceService {
         const user = await this.prisma.user.findUnique({
             where: { id: userId }
         })
-        this.workspaceGateway.notifyLeaveMember(workspaceId, user.username)
+
+        this.appGateway.notifyLeaveMember("workspace",workspaceId, user.username)
+       
         return {
             success: true,
             message: "You have successfully left the workspace."
@@ -227,7 +230,7 @@ export class WorkspaceService {
         const user = await this.prisma.user.findUnique({
             where: { id: userId }
         })
-        this.workspaceGateway.notifyRemoveMember(workspaceId, user.username)
+        this.appGateway.notifyRemoveMember("workspace",workspaceId, user.username)
 
         return {
             success: true,

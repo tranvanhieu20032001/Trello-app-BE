@@ -3,11 +3,11 @@ import { PrismaService } from "../prisma/prisma.service";
 import { BoardDTO } from './dto';
 import { slugify } from '../utils/formatters/formatters';
 import { validateUser } from '../utils/validations';
-import { BoardGateway } from '../gateways/board.gateway';
+import { AppGateway } from '../gateways/app.gateway';
 
 @Injectable()
 export class BoardsService {
-    constructor(private prisma: PrismaService, private boardGateway: BoardGateway) { }
+    constructor(private prisma: PrismaService, private readonly appGateWay: AppGateway) { }
 
     async createBoard(boardDTO: BoardDTO, userId: string) {
         try {
@@ -42,6 +42,8 @@ export class BoardsService {
                     starred: false,
                 },
             });
+
+            this.appGateWay.notifyWorkspace(boardDTO.workspaceId)
 
             return {
                 success: true,
@@ -124,6 +126,8 @@ export class BoardsService {
             throw new ForbiddenException("Only the workspace owner can remove members.")
         }
 
+        this.appGateWay.notifyWorkspace(board.workspaceId)
+
         return {
             success: true,
             message: "Board closed successfully",
@@ -132,7 +136,7 @@ export class BoardsService {
 
     }
 
-    async reOpenBoard(boardId: string) {
+    async reOpenBoard(boardId: string, userId: string) {
         if (!boardId) {
             throw new BadRequestException('Invalid board ID');
         }
@@ -141,6 +145,11 @@ export class BoardsService {
             where: { id: boardId },
             data: { status: true }
         })
+        if (board?.ownerId !== userId) {
+            throw new ForbiddenException('Only owner can reopen the board');
+        }
+
+        this.appGateWay.notifyWorkspace(board.workspaceId)
 
         return {
             success: true,
@@ -148,6 +157,32 @@ export class BoardsService {
             data: board,
         };
 
+    }
+
+    async deleteBoard(boardId: string, userId: string) {
+        const board = await this.prisma.board.findUnique({
+            where: { id: boardId },
+        });
+
+        if (!board) {
+            throw new NotFoundException('Board does not exist');
+        }
+
+        if (board.ownerId !== userId) {
+            throw new ForbiddenException('Only the board owner can remove the board.');
+        }
+
+        await this.prisma.board.delete({
+            where: { id: boardId },
+        });
+
+        this.appGateWay?.notifyWorkspace(board.workspaceId);
+
+        return {
+            success: true,
+            message: 'Board deleted successfully',
+            boardId,
+        };
     }
 
     async addMember(boardId: string, userId: string) {
@@ -176,7 +211,7 @@ export class BoardsService {
         const user = await this.prisma.user.findUnique({
             where: { id: userId }
         })
-        this.boardGateway.notifyNewMember(boardId, user.username)
+        this.appGateWay.notifyNewMember("board", boardId, user.username)
 
         return {
             message: 'Joined board successfully',
@@ -225,7 +260,7 @@ export class BoardsService {
         const user = await this.prisma.user.findUnique({
             where: { id: userId }
         })
-        this.boardGateway.notifyLeaveMember(boardId, user.username)
+        this.appGateWay.notifyLeaveMember("board", boardId, user.username)
 
         return {
             success: true,
@@ -270,7 +305,7 @@ export class BoardsService {
         const user = await this.prisma.user.findUnique({
             where: { id: userId }
         })
-        this.boardGateway.notifyRemoveMember(boardId, user.username)
+        this.appGateWay.notifyRemoveMember("board", boardId, user.username)
 
         return {
             success: true,
@@ -287,6 +322,8 @@ export class BoardsService {
             throw new ForbiddenException("User is not the owner of the board");
         }
         if (!board) throw new NotFoundException("Board not found")
+
+        this.appGateWay.notifyBoard(boardId)
         return this.prisma.board.update({
             where: { id: boardId },
             data: { type: visibility }
@@ -312,6 +349,7 @@ export class BoardsService {
         if (existingTitle) {
             throw new BadRequestException("This board name already exists, please choose another one.");
         }
+        this.appGateWay.notifyBoard(boardId)
         return this.prisma.board.update({
             where: { id: boardId },
             data: { title: newname }
@@ -371,7 +409,7 @@ export class BoardsService {
             where: { id: boardId },
             data: { columnOrderIds: columnOrderIds }
         })
-        this.boardGateway.updateColumnOrder(boardId)
+        this.appGateWay.notifyBoard(boardId)
     }
 
 }

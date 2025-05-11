@@ -2,11 +2,11 @@ import { BadRequestException, ForbiddenException, Injectable, InternalServerErro
 import { ColumnDTO, MoveCardBetweenColumnsDTO } from './dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { validateUser } from '../utils/validations';
-import { ColumnGateway } from '../gateways/column.gateway';
+import { AppGateway } from '../gateways/app.gateway';
 
 @Injectable()
 export class ColumnsService {
-  constructor(private prisma: PrismaService, private columnGateway: ColumnGateway) { }
+  constructor(private prisma: PrismaService, private readonly appGateWay: AppGateway) { }
 
   async createColumn(columnDTO: ColumnDTO) {
     try {
@@ -36,9 +36,7 @@ export class ColumnsService {
         where: { id: columnDTO.boardId },
         data: { columnOrderIds: updatedColumnOrder }
       });
-
-      this.columnGateway.notifyColumn(columnDTO.boardId)
-
+      this.appGateWay.notifyBoard(columnDTO.boardId)
       return {
         success: true,
         message: "Column created successfully",
@@ -60,7 +58,7 @@ export class ColumnsService {
       where: { id: colummId },
       data: { cardOrderIds: cardOrderIds }
     })
-    this.columnGateway.updateOrderCardIds(columnn?.boardId)
+    // this.columnGateway.updateOrderCardIds(columnn?.boardId)
   }
 
   async updateCardOrderDifferentColumn(data: MoveCardBetweenColumnsDTO) {
@@ -83,7 +81,7 @@ export class ColumnsService {
     const columnn = await this.prisma.column.findUnique({
       where: { id: oldColumnId }
     })
-    this.columnGateway.updateOrderCardIds(columnn?.boardId)
+    // this.columnGateway.updateOrderCardIds(columnn?.boardId)
   }
 
   async renameList(columnId: string, userId: string, newName: string) {

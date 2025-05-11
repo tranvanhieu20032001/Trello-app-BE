@@ -1,13 +1,13 @@
 import { BadRequestException, ForbiddenException, Injectable, InternalServerErrorException, NotFoundException, UseGuards } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { cardDTO } from './dto/card.dto';
-import { CardGateway } from '../gateways/card.gateway';
-import { ColumnGateway } from '../gateways/column.gateway';
-import { Prisma } from '@prisma/client';
+import { AppGateway } from '../gateways/app.gateway';
+import { ActivityAction, NotificationType } from '@prisma/client';
+import { extractMentionIdsFromHtml } from '../utils/formatters/extractMentionIdsFromHtml';
 
 @Injectable()
 export class CardsService {
-    constructor(private prisma: PrismaService, private cardGateway: CardGateway, private columnGateway: ColumnGateway) { }
+    constructor(private prisma: PrismaService, private readonly appGateWay: AppGateway) { }
 
     async createCard(cardDTO: cardDTO, userId: string) {
         try {
@@ -52,7 +52,8 @@ export class CardsService {
                     userId: userId
                 }
             })
-            this.columnGateway.notifyColumn(cardDTO.columnId)
+
+            this.appGateWay.notifyBoard(cardDTO.boardId)
 
             return {
                 success: true,
@@ -75,23 +76,35 @@ export class CardsService {
     }
 
     async moveCard(cardId: string, columnId: string) {
-        this.cardGateway.notifyCard(cardId)
-        return this.prisma.card.update({
-            where: { id: cardId }, data: { columnId: columnId }
-        })
+        const card = await this.prisma.card.update({
+            where: { id: cardId },
+            data: { columnId }
+        });
+
+        if (card.boardId) {
+            this.appGateWay.notifyBoard(card.boardId);
+        }
+
+        return card;
     }
 
+
     async uploadCoverCard(cardId: string, coverName: string) {
-        this.cardGateway.notifyCard(cardId)
-        return this.prisma.card.update({
+        const card = await this.prisma.card.update({
             where: { id: cardId }, data: { cover: coverName }
         })
+
+        if (card.boardId) {
+            this.appGateWay.notifyBoard(card.boardId);
+        }
+
+        return card;
     }
 
     async createCheckList(cardId: string, title: string) {
-        this.cardGateway.notifyCard(cardId)
         const card = await this.prisma.card.findUnique({
-            where: { id: cardId }
+            where: { id: cardId },
+            select: { boardId: true }
         })
         if (!card) throw new NotFoundException("Card not found")
 
@@ -105,15 +118,16 @@ export class CardsService {
         if (existCheckList) {
             throw new BadRequestException("A checklist with this title already exists in the card.");
         }
-
-        this.cardGateway.notifyCard(cardId)
-
         const newCheckList = await this.prisma.checklist.create({
             data: {
                 title,
                 cardId,
             },
         });
+
+        if (card.boardId) {
+            this.appGateWay.notifyBoard(card.boardId);
+        }
 
         return newCheckList;
     }
@@ -129,7 +143,15 @@ export class CardsService {
                 checklistId: checkListId
             }
         })
-        this.cardGateway.notifyCard(checkList?.cardId)
+
+        const card = await this.prisma.card.findUnique({
+            where: { id: checkList.cardId },
+            select: { boardId: true },
+        });
+        if (!card) throw new NotFoundException("Card not found")
+        if (card.boardId) {
+            this.appGateWay.notifyBoard(card.boardId);
+        }
         return newItem
     }
 
@@ -147,6 +169,20 @@ export class CardsService {
             },
         });
 
+        const checkList = await this.prisma.checklist.findUnique({
+            where: { id: item?.checklistId }
+        })
+
+        const card = await this.prisma.card.findUnique({
+            where: { id: checkList.cardId },
+            select: { boardId: true },
+        });
+
+        if (!card) throw new NotFoundException("Card not found")
+        if (card.boardId) {
+            this.appGateWay.notifyBoard(card.boardId);
+        }
+
         return updatedItem;
     }
 
@@ -158,7 +194,18 @@ export class CardsService {
         if (!checkList) {
             throw new NotFoundException('Checklist not found');
         }
-        await this.prisma.checklist.delete({
+
+        const card = await this.prisma.card.findUnique({
+            where: { id: checkList.cardId },
+            select: { boardId: true },
+        });
+
+        if (!card) throw new NotFoundException("Card not found")
+        if (card.boardId) {
+            this.appGateWay.notifyBoard(card.boardId);
+        }
+
+        return await this.prisma.checklist.delete({
             where: { id: checkListId },
         });
     }
@@ -171,7 +218,21 @@ export class CardsService {
         if (!item) {
             throw new NotFoundException('Checklist item not found');
         }
-        await this.prisma.checklistItem.delete({
+
+        const checkList = await this.prisma.checklist.findUnique({
+            where: { id: item?.checklistId }
+        })
+
+        const card = await this.prisma.card.findUnique({
+            where: { id: checkList.cardId },
+            select: { boardId: true },
+        });
+
+        if (!card) throw new NotFoundException("Card not found")
+        if (card.boardId) {
+            this.appGateWay.notifyBoard(card.boardId);
+        }
+        return await this.prisma.checklistItem.delete({
             where: { id: itemId },
         });
     }
@@ -181,8 +242,10 @@ export class CardsService {
             where: { id: cardId }
         })
         if (!card) throw new NotFoundException("Card not found")
-        this.cardGateway.notifyCard(cardId)
-        await this.prisma.card.update({
+        if (card.boardId) {
+            this.appGateWay.notifyBoard(card.boardId);
+        }
+        return await this.prisma.card.update({
             where: { id: cardId },
             data: {
                 startDate: new Date(start),
@@ -221,7 +284,11 @@ export class CardsService {
                 }
             })
         }
-        this.cardGateway.notifyCard(cardId)
+
+        if (card.boardId) {
+            this.appGateWay.notifyBoard(card.boardId);
+        }
+        return { message: "COMPLETE_CARD" };
     }
 
     async joinCard(cardId: string, userId: string) {
@@ -277,15 +344,15 @@ export class CardsService {
                 userId: userId
             }
         })
-        this.cardGateway.notifyCard(cardId)
+
+        if (card.boardId) {
+            this.appGateWay.notifyBoard(card.boardId);
+        }
+
         return { message: "Joined card successfully" };
     }
 
     async leaveCard(cardId: string, userId: string) {
-        const card = await this.prisma.card.findUnique({
-            where: { id: cardId },
-        });
-
         await this.prisma.cardMember.delete({
             where: {
                 cardId_userId: {
@@ -302,7 +369,17 @@ export class CardsService {
                 userId: userId
             }
         })
-        this.cardGateway.notifyCard(cardId)
+        const card = await this.prisma.card.findUnique({
+            where: { id: cardId },
+            select: { boardId: true }
+        });
+
+        if (!card) {
+            throw new NotFoundException("Card not found");
+        }
+        if (card.boardId) {
+            this.appGateWay.notifyBoard(card.boardId);
+        }
 
         return { message: "Leave card successfully" };
     }
@@ -346,7 +423,10 @@ export class CardsService {
                 }
             })
         }
-        this.cardGateway.notifyCard(cardId)
+
+        if (card.boardId) {
+            this.appGateWay.notifyBoard(card.boardId);
+        }
 
         return { message: "Joined card successfully" };
     }
@@ -374,7 +454,10 @@ export class CardsService {
                 }
             });
         }
-        this.cardGateway.notifyCard(cardId)
+
+        if (card.boardId) {
+            this.appGateWay.notifyBoard(card.boardId);
+        }
 
         return { message: "Removed member successfully" };
     }
@@ -390,7 +473,7 @@ export class CardsService {
         });
 
         const activities = filePaths.map((filePath) => ({
-            action: "UPLOAD_ATTACHMENT",
+            action: ActivityAction.UPLOAD_ATTACHMENT,
             data: {
                 fileName: filePath.split("\\").pop(),
             },
@@ -401,34 +484,77 @@ export class CardsService {
         await this.prisma.activity.createMany({
             data: activities,
         });
+        const card = await this.prisma.card.findUnique({
+            where: { id: cardId },
+            select: { boardId: true }
+        });
 
+        if (!card) {
+            throw new NotFoundException("Card not found");
+        }
+        if (card.boardId) {
+            this.appGateWay.notifyBoard(card.boardId);
+        }
 
         return { message: 'Attachments uploaded successfully' };
     }
 
     async uploadDescripton(cardId: string, content: string) {
-        const card = this.prisma.card.findUnique({
+        const card = await this.prisma.card.findUnique({
             where: { id: cardId }
         })
 
         if (!card) {
             throw new NotFoundException("Card not found");
         }
-        await this.prisma.card.update({
+        if (card.boardId) {
+            this.appGateWay.notifyBoard(card.boardId);
+        }
+        return await this.prisma.card.update({
             where: { id: cardId },
             data: { description: content }
         })
     }
 
     async addComments(cardId: string, content: string, userId: string) {
-        return this.prisma.comment.create({
+        const card = await this.prisma.card.findUnique({
+            where: { id: cardId },
+            select: { boardId: true }
+        });
+        if (!card) throw new NotFoundException("Card not found");
+
+        const comment = await this.prisma.comment.create({
             data: {
                 cardId,
                 content,
                 userId
             },
         });
-        
+
+        const mentionedIds = extractMentionIdsFromHtml(content).filter(id => id !== userId);
+
+        if (mentionedIds.length > 0) {
+            const notifications = mentionedIds.map((ids) => ({
+                type: NotificationType.TAGGED_IN_COMMENT,
+                commentId: comment.id,
+                actorId: userId,
+                targetUserId: ids,
+                data: {
+                    cardId,
+                    boardId: card?.boardId
+                }
+            }));
+            for (const id of mentionedIds) {
+                this.appGateWay.notifyUser(id);
+            }
+            await this.prisma.notification.createMany({ data: notifications });
+        }
+
+        if (card.boardId) {
+            this.appGateWay.notifyBoard(card.boardId);
+        }
+
+        return comment;
     }
 
     async editComment(commentId: string, newContent: string, userId: string) {
@@ -442,6 +568,17 @@ export class CardsService {
 
         if (comment.userId !== userId) {
             throw new ForbiddenException('You can only edit your own comment');
+        }
+
+        const card = await this.prisma.card.findUnique({
+            where: { id: comment?.cardId },
+            select: { boardId: true }
+        });
+        if (!card) {
+            throw new NotFoundException("Card not found");
+        }
+        if (card.boardId) {
+            this.appGateWay.notifyBoard(card.boardId);
         }
 
         return this.prisma.comment.update({
@@ -461,6 +598,18 @@ export class CardsService {
 
         if (comment.userId !== userId) {
             throw new ForbiddenException('You can only delete your own comment');
+        }
+
+
+        const card = await this.prisma.card.findUnique({
+            where: { id: comment?.cardId },
+            select: { boardId: true }
+        });
+        if (!card) {
+            throw new NotFoundException("Card not found");
+        }
+        if (card.boardId) {
+            this.appGateWay.notifyBoard(card.boardId);
         }
 
         return this.prisma.comment.delete({
