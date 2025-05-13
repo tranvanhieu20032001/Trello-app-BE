@@ -47,7 +47,11 @@ export class UploadService {
 
 
   async deleteAttachment(fileUrl: string, id: string, userId: string) {
-    const attachment = await this.prisma.attachment.findUnique({ where: { id } });
+    const attachment = await this.prisma.attachment.findUnique({ where: { id: id } });
+    console.log("attachment", attachment);
+    console.log("userId", userId);
+    
+
 
     if (!attachment) throw new NotFoundException('Attachment not found');
     if (attachment.userId !== userId) throw new ForbiddenException('Not allowed');

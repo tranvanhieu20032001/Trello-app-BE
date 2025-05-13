@@ -99,9 +99,51 @@ export class BoardsService {
                 }, labels: true
             }
         });
-
         if (!board) {
             throw new NotFoundException('Board not found');
+        }
+
+
+        const isMemberBoard = await this.prisma.boardMember.findUnique({
+            where: {
+                boardId_userId: {
+                    boardId: id,
+                    userId,
+                },
+            },
+        });
+        const isMemberWorkSpace = await this.prisma.workspaceMember.findUnique({
+            where: {
+                workspaceId_userId: {
+                    workspaceId: board?.workspaceId,
+                    userId,
+                },
+            },
+        });
+        const isPublic = board.type === 'public';
+
+        const hasAccess =
+            isPublic ||
+            (board.type === 'private' && !!isMemberBoard) ||
+            (board.type === 'workspace' && !!isMemberWorkSpace) ||
+            (board.type === 'workspace' && !!isMemberBoard);
+        if (hasAccess) {
+            await this.prisma.boardRecent.upsert({
+                where: {
+                    boardId_userId: {
+                        boardId: id,
+                        userId,
+                    },
+                },
+                update: {
+                    recentAccessedAt: new Date(),
+                },
+                create: {
+                    boardId: id,
+                    userId,
+                    recentAccessedAt: new Date(),
+                },
+            });
         }
 
         return {
@@ -112,6 +154,52 @@ export class BoardsService {
             },
         };
     }
+
+
+    async getBoardRecent(userId: string) {
+        const recent5 = await this.prisma.boardRecent.findMany({
+            where: { userId },
+            orderBy: { recentAccessedAt: 'desc' },
+            take: 5,
+            include: {
+                board: {
+                    include: {
+                        UserBoardPreference: {
+                            where: { userId },
+                            select: { starred: true }
+                        },
+                    }
+                },
+            },
+        });
+        const boardIdsToKeep = recent5.map(r => r.boardId);
+
+        await this.prisma.boardRecent.deleteMany({
+            where: {
+                userId,
+                boardId: {
+                    notIn: boardIdsToKeep,
+                },
+            },
+        });
+
+        return recent5;
+    }
+
+    async getBoardStarred(userId: string) {
+        const starredBoards = await this.prisma.userBoardPreference.findMany({
+            where: {
+                userId,
+                starred: true,
+            },
+            include: {
+                board: true,
+            },
+        });
+        return starredBoards.map((item) => item.board);
+    }
+
+
 
     async closeBoard(boardId: string, userId: string) {
         if (!boardId) {
@@ -211,6 +299,14 @@ export class BoardsService {
         const user = await this.prisma.user.findUnique({
             where: { id: userId }
         })
+        // if(userId !== actorId){
+        //     await this.prisma.notification.create({ 
+        //         data:{
+
+        //         }
+
+        //      });
+        // }
         this.appGateWay.notifyNewMember("board", boardId, user.username)
 
         return {

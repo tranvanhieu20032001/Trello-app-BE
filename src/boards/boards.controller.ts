@@ -25,8 +25,24 @@ export class BoardsController {
     @UseGuards(JwtAuthGuard)
     @Get('/:id')
     async getBoardById(@Param('id') id: string, @Request() req) {
+        console.log("dsahgsd");
+        
         const userId = req.user.user.id
         return this.boardsService.getBoardById(id, userId)
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @Get("/user/recent")
+    async getBoardRecent(@Request() req) {
+        const userId = req.user.user.id
+        return this.boardsService.getBoardRecent(userId)
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @Get("/user/starred")
+    async getBoardStarred(@Request() req) {
+        const userId = req.user.user.id
+        return this.boardsService.getBoardStarred(userId)
     }
 
     @UseGuards(JwtAuthGuard)
@@ -50,7 +66,7 @@ export class BoardsController {
     }
 
     @Post('join')
-    async joinWorkspace(@Body() body: { boardId, userId }) {
+    async joinBoard(@Body() body: { boardId, userId }, @Request() req) {
         return this.boardsService.addMember(body.boardId, body.userId)
     }
 

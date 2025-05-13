@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Param, Patch, Post, Put, Request, UseGuards, } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Request, UseGuards, } from '@nestjs/common';
 import { CardsService } from './cards.service';
 import { JwtAuthGuard } from '../guard';
 import { cardDTO } from './dto/card.dto';
@@ -15,7 +15,12 @@ export class CardsController {
         return this.cardService.createCard(cardDTO, userId)
     }
 
-    
+    @Get(":id")
+    async getCardById(@Param("id") cardId: string) {
+        return this.cardService.getCardById(cardId)
+    }
+
+
     @Put(":cardId/rename")
     async rename(@Param("cardId") cardId: string, @Body() body: { newTitle: string }) {
         return this.cardService.updateCardTitle(cardId, body.newTitle)
@@ -98,9 +103,11 @@ export class CardsController {
         return this.cardService.addMemberToCard(cardId, body.userId, ownerId)
     }
 
+    @UseGuards(JwtAuthGuard)
     @Patch(':id/member')
-    async remove(@Param('id') cardId: string, @Body() body: { userId }) {
-        return this.cardService.removeMemberFromCard(cardId, body.userId)
+    async remove(@Param('id') cardId: string, @Body() body: { userId }, @Request() req) {
+        const actorId = req.user.user.id
+        return this.cardService.removeMemberFromCard(cardId, body.userId, actorId)
     }
 
     @Put("/:id/description")

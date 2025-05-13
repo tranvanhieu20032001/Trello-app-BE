@@ -66,6 +66,28 @@ export class CardsService {
         }
     }
 
+    async getCardById(cardId: string) {
+        return this.prisma.card.findUnique({
+            where: { id: cardId },
+            include: {
+                labels: {
+                    include: {
+                        label: true
+                    }
+                },
+                checklists: {
+                    include: { items: true }
+                },
+                CardMembers: {
+                    include: { user: true }
+                },
+                attachments: true,
+                comments: { include: { user: true } },
+                Activity: { include: { user: true } }
+            }
+        })
+    }
+
     async updateCardTitle(cardId: string, newTitle: string) {
         await this.prisma.card.update({
             where: { id: cardId },
@@ -94,8 +116,8 @@ export class CardsService {
             where: { id: cardId }, data: { cover: coverName }
         })
 
-        if (card.boardId) {
-            this.appGateWay.notifyBoard(card.boardId);
+        if (card.id) {
+            this.appGateWay.notifyCard(card.id);
         }
 
         return card;
@@ -422,6 +444,19 @@ export class CardsService {
                     userId: ownerId
                 }
             })
+
+            await this.prisma.notification.create({
+                data: {
+                    type: NotificationType.ADDED_TO_CARD,
+                    data: {
+                        cardId: cardId,
+                        cardName: card?.title
+                    },
+                    actorId: ownerId,
+                    targetUserId: userId
+                }
+            })
+             this.appGateWay.notifyUser(userId);
         }
 
         if (card.boardId) {
@@ -431,7 +466,7 @@ export class CardsService {
         return { message: "Joined card successfully" };
     }
 
-    async removeMemberFromCard(cardId: string, userId: string) {
+    async removeMemberFromCard(cardId: string, userId: string, actorId: string) {
         const card = await this.prisma.card.findUnique({
             where: { id: cardId },
         });
@@ -455,6 +490,19 @@ export class CardsService {
             });
         }
 
+        await this.prisma.notification.create({
+            data: {
+                type: NotificationType.REMOVED_FROM_CARD,
+                data: {
+                    cardId: cardId,
+                    cardName: card?.title
+                },
+                actorId: actorId,
+                targetUserId: userId
+            }
+        })
+
+        this.appGateWay.notifyUser(userId);
         if (card.boardId) {
             this.appGateWay.notifyBoard(card.boardId);
         }
@@ -507,8 +555,8 @@ export class CardsService {
         if (!card) {
             throw new NotFoundException("Card not found");
         }
-        if (card.boardId) {
-            this.appGateWay.notifyBoard(card.boardId);
+        if (card.id) {
+            this.appGateWay.notifyCard(card.id);
         }
         return await this.prisma.card.update({
             where: { id: cardId },
@@ -571,21 +619,49 @@ export class CardsService {
         }
 
         const card = await this.prisma.card.findUnique({
-            where: { id: comment?.cardId },
+            where: { id: comment.cardId },
             select: { boardId: true }
         });
+
         if (!card) {
             throw new NotFoundException("Card not found");
         }
+
+        // Cập nhật comment
+        const updatedComment = await this.prisma.comment.update({
+            where: { id: commentId },
+            data: { content: newContent },
+        });
+
+        // Xử lý tag mention mới
+        const mentionedIds = extractMentionIdsFromHtml(newContent).filter(id => id !== userId);
+
+        if (mentionedIds.length > 0) {
+            const notifications = mentionedIds.map((targetUserId) => ({
+                type: NotificationType.TAGGED_IN_COMMENT,
+                commentId: commentId,
+                actorId: userId,
+                targetUserId,
+                data: {
+                    cardId: comment.cardId,
+                    boardId: card.boardId
+                }
+            }));
+
+            for (const id of mentionedIds) {
+                this.appGateWay.notifyUser(id);
+            }
+
+            await this.prisma.notification.createMany({ data: notifications });
+        }
+
         if (card.boardId) {
             this.appGateWay.notifyBoard(card.boardId);
         }
 
-        return this.prisma.comment.update({
-            where: { id: commentId },
-            data: { content: newContent },
-        });
+        return updatedComment;
     }
+
 
     async deleteComment(commentId: string, userId: string) {
         const comment = await this.prisma.comment.findUnique({
@@ -616,6 +692,4 @@ export class CardsService {
             where: { id: commentId },
         });
     }
-
-
 }

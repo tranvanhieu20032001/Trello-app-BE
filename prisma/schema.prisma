@@ -27,7 +27,7 @@ model WorkspaceMember {
   workspaceId String
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-
+  @@unique([workspaceId, userId])
   @@map("workspace_member")
 }
 
@@ -53,8 +53,9 @@ model Board {
   workspace           Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   UserBoardPreference UserBoardPreference[]
 
-  labels Label[]
-  Invite Invite[]
+  labels      Label[]
+  Invite      Invite[]
+  BoardRecent BoardRecent[]
 
   @@map("boards")
 }
@@ -160,6 +161,7 @@ model User {
   Attachment          Attachment[]
   Activity            Activity[]
   Notification        Notification[]
+  BoardRecent         BoardRecent[]
 
   @@map("users")
 }
@@ -170,8 +172,19 @@ model BoardMember {
   board   Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
   user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@id([boardId, userId]) // Composite primary key
+  @@id([boardId, userId])
   @@map("board_member")
+}
+
+model BoardRecent {
+  boardId          String
+  userId           String
+  recentAccessedAt DateTime?
+  board            Board     @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([boardId, userId])
+  @@map("board_recent")
 }
 
 model CardMember {
@@ -287,4 +300,10 @@ enum NotificationType {
   TAGGED_IN_COMMENT
   ADDED_TO_CARD
   REMOVED_FROM_CARD
+  COMPLETE_CARD
+  INCOMPLETE_CARD
+  ADDED_TO_BOARD
+  REMOVE_FROM_BOARD
+  ADDED_TO_WORKSPACE
+  REMOVE_FROM_WORKSPACE
 }
