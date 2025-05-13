@@ -6,13 +6,10 @@ import { JwtAuthGuard } from '../guard';
 @Controller('api/v1/boards')
 export class BoardsController {
     constructor(private boardsService: BoardsService) { }
-    @Get('/')
-    getAllBoards() {
-        return {
-            message: 'Get all boards successfully!',
-            data: []
-        };
-    }
+
+    @UseGuards(JwtAuthGuard)
+    @Get()
+    async getBoardByUser() { }
 
     @UseGuards(JwtAuthGuard)
     @Post()
@@ -21,12 +18,11 @@ export class BoardsController {
         return this.boardsService.createBoard(boardDTO, userId);
     }
 
-
     @UseGuards(JwtAuthGuard)
     @Get('/:id')
     async getBoardById(@Param('id') id: string, @Request() req) {
         console.log("dsahgsd");
-        
+
         const userId = req.user.user.id
         return this.boardsService.getBoardById(id, userId)
     }

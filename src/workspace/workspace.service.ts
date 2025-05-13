@@ -56,7 +56,8 @@ export class WorkspaceService {
                     }, boards: {
                         include: {
                             UserBoardPreference: true,
-                            BoardMembers: true
+                            BoardMembers: true,
+                            Card:true
                         }
                     }
                 }
@@ -84,7 +85,8 @@ export class WorkspaceService {
                 }, boards: {
                     include: {
                         UserBoardPreference: true,
-                        BoardMembers: true
+                        BoardMembers: true,
+                        Card: true
                     }
                 }
             }
@@ -114,7 +116,7 @@ export class WorkspaceService {
             where: { id: userId }
         })
 
-        this.appGateway.notifyNewMember("workspace",workspaceId, user.username)
+        this.appGateway.notifyNewMember("workspace", workspaceId, user.username)
 
         return {
             message: 'Joined workspace successfully',
@@ -188,8 +190,8 @@ export class WorkspaceService {
             where: { id: userId }
         })
 
-        this.appGateway.notifyLeaveMember("workspace",workspaceId, user.username)
-       
+        this.appGateway.notifyLeaveMember("workspace", workspaceId, user.username)
+
         return {
             success: true,
             message: "You have successfully left the workspace."
@@ -230,7 +232,7 @@ export class WorkspaceService {
         const user = await this.prisma.user.findUnique({
             where: { id: userId }
         })
-        this.appGateway.notifyRemoveMember("workspace",workspaceId, user.username)
+        this.appGateway.notifyRemoveMember("workspace", workspaceId, user.username)
 
         return {
             success: true,
