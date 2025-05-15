@@ -24,9 +24,11 @@ export class WorkspaceController {
     }
 
 
+    @UseGuards(JwtAuthGuard)
     @Post('join')
-    async joinWorkspace(@Body() body: { workspaceId, userId }) {
-        return this.workspaceService.addMember(body.workspaceId, body.userId)
+    async joinWorkspace(@Body() body: { workspaceId, userId }, @Req() req) {
+        const actorId = req.user.user.id
+        return this.workspaceService.addMember(body.workspaceId, body.userId, actorId)
     }
 
     @Get('search/user')
@@ -38,7 +40,7 @@ export class WorkspaceController {
     async updateWorkspaceName(@Body() body: { workspaceId: string; userId: string; newName: string }) {
         return await this.workspaceService.updateWorkspaceName(body.workspaceId, body.userId, body.newName)
     }
-    
+
     @UseGuards(JwtAuthGuard)
     @Patch(':workspaceId/leave')
     async leaveWorkspace(@Param('workspaceId') workspaceId: string, @Req() req) {
@@ -46,8 +48,10 @@ export class WorkspaceController {
         return this.workspaceService.leaveWorkspace(workspaceId, userId)
     }
 
+    @UseGuards(JwtAuthGuard)
     @Delete(":workspaceId/remove")
-    async removeUser(@Param("workspaceId") workspaceId: string, @Body() body: { ownerId: string, userId: string }) {
-        return await this.workspaceService.removeMemberWorkspace(workspaceId, body.ownerId, body.userId)
+    async removeUser(@Param("workspaceId") workspaceId: string, @Body() body: { ownerId: string, userId: string }, @Req() req) {
+         const actorId = req.user.user.id;
+        return await this.workspaceService.removeMemberWorkspace(workspaceId, body.ownerId, body.userId, actorId)
     }
 }

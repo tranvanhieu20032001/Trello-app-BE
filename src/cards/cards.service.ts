@@ -2,7 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, InternalServerErro
 import { PrismaService } from '../prisma/prisma.service';
 import { cardDTO } from './dto/card.dto';
 import { AppGateway } from '../gateways/app.gateway';
-import { ActivityAction, NotificationType } from '@prisma/client';
+import { ActivityAction, AttachmentType, NotificationType } from '@prisma/client';
 import { extractMentionIdsFromHtml } from '../utils/formatters/extractMentionIdsFromHtml';
 
 @Injectable()
@@ -280,38 +280,48 @@ export class CardsService {
     async completeCard(cardId: string, iscomplete: boolean, userId: string) {
         const card = await this.prisma.card.findUnique({
             where: { id: cardId }
-        })
-        if (!card) throw new NotFoundException("Card not found")
+        });
 
+        if (!card) throw new NotFoundException("Card not found");
         await this.prisma.card.update({
             where: { id: cardId },
             data: {
                 isComplete: iscomplete
             }
-        })
-        if (iscomplete) {
-            await this.prisma.activity.create({
-                data: {
-                    action: "COMPLETE_CARD",
-                    cardId: cardId,
-                    userId: userId
-                }
-            })
-        } else {
-            await this.prisma.activity.create({
-                data: {
-                    action: "INCOMPLETE_CARD",
-                    cardId: cardId,
-                    userId: userId
-                }
-            })
-        }
+        });
+        const cardMembers = await this.prisma.cardMember.findMany({
+            where: { cardId },
+            select: { userId: true }
+        });
 
+        const memberIds = cardMembers.map((m) => m.userId);
+        for (const memberId of memberIds) {
+            await this.prisma.activity.create({
+                data: {
+                    action: iscomplete ? "COMPLETE_CARD" : "INCOMPLETE_CARD",
+                    cardId: cardId,
+                    userId: userId
+                }
+            });
+            await this.prisma.notification.create({
+                data: {
+                    type: iscomplete ? NotificationType.COMPLETE_CARD : NotificationType.INCOMPLETE_CARD,
+                    data: {
+                        cardId: cardId,
+                        cardName: card.title
+                    },
+                    actorId: userId,
+                    targetUserId: memberId
+                }
+            });
+            this.appGateWay.notifyUser(memberId);
+        }
         if (card.boardId) {
             this.appGateWay.notifyBoard(card.boardId);
         }
         return { message: "COMPLETE_CARD" };
     }
+
 
     async joinCard(cardId: string, userId: string) {
         const card = await this.prisma.card.findUnique({
@@ -378,33 +388,63 @@ export class CardsService {
         await this.prisma.cardMember.delete({
             where: {
                 cardId_userId: {
-                    cardId: cardId,
-                    userId: userId
-                }
-            }
-        })
+                    cardId,
+                    userId,
+                },
+            },
+        });
 
         await this.prisma.activity.create({
             data: {
                 action: "LEAVED_CARD",
-                cardId: cardId,
-                userId: userId
-            }
-        })
+                cardId,
+                userId,
+            },
+        });
+
         const card = await this.prisma.card.findUnique({
             where: { id: cardId },
-            select: { boardId: true }
+            select: {
+                boardId: true,
+                title: true,
+                CardMembers: {
+                    select: { userId: true },
+                },
+            },
         });
 
         if (!card) {
             throw new NotFoundException("Card not found");
         }
+
+        const otherMembers = card.CardMembers.filter((member) => member.userId !== userId);
+
+        await Promise.all(
+            otherMembers.map((member) =>
+                this.prisma.notification.create({
+                    data: {
+                        type: NotificationType.LEAVED_CARD,
+                        data: {
+                            cardId: cardId,
+                            cardName: card.title,
+                        },
+                        actorId: userId,
+                        targetUserId: member.userId,
+                    },
+                })
+            )
+        );
+        otherMembers.forEach((member) => {
+            this.appGateWay.notifyUser(member.userId);
+        });
+
         if (card.boardId) {
             this.appGateWay.notifyBoard(card.boardId);
         }
 
         return { message: "Leave card successfully" };
     }
+
 
     async addMemberToCard(cardId: string, userId: string, ownerId: string) {
         const card = await this.prisma.card.findUnique({
@@ -456,7 +496,7 @@ export class CardsService {
                     targetUserId: userId
                 }
             })
-             this.appGateWay.notifyUser(userId);
+            this.appGateWay.notifyUser(userId);
         }
 
         if (card.boardId) {
@@ -510,20 +550,27 @@ export class CardsService {
         return { message: "Removed member successfully" };
     }
 
-    async uploadAttachmentPath(cardId: string, filePaths: string[], userId: string) {
-        const attachments = filePaths.map((fileUrl) => ({
+    async uploadAttachmentPath(cardId: string,
+        type: string,
+        filePaths: string[],
+        userId: string,
+        filenames?: string[]) {
+        const attachments = filePaths.map((fileUrl, index) => ({
             fileUrl,
+            type: type === 'DRIVER' ? AttachmentType.DRIVER : AttachmentType.LOCAL,
+            fileName: filenames?.[index] || fileUrl.split("\\").pop() || fileUrl.split("/").pop(),
             cardId,
-            userId
+            userId,
         }));
+
         await this.prisma.attachment.createMany({
             data: attachments,
         });
 
-        const activities = filePaths.map((filePath) => ({
+        const activities = filePaths.map((filePath, index) => ({
             action: ActivityAction.UPLOAD_ATTACHMENT,
             data: {
-                fileName: filePath.split("\\").pop(),
+                fileName: filenames?.[index] || filePath.split("\\").pop() || filePath.split("/").pop(),
             },
             cardId,
             userId,
@@ -692,4 +739,5 @@ export class CardsService {
             where: { id: commentId },
         });
     }
+
 }

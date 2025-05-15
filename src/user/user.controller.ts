@@ -1,4 +1,4 @@
-import { Controller, Get, Req, Request, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Patch, Post, Req, Request, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { UserService } from './user.service';
 
@@ -17,5 +17,18 @@ export class UserController {
     async getNotifications(@Request() req) {
         return this.userService.getNotifications(req.user.user.id)
     }
+
+    @UseGuards(AuthGuard('jwt'))
+    @Patch('notifications/mark-as-read')
+    async markAsRead(@Request() req) {
+        return this.userService.markAsRead(req.user.user.id);
+    }
+
+    @UseGuards(AuthGuard('jwt'))
+    @Patch('notifications/:id/read')
+    async markSingleAsRead(@Param('id') id: string) {
+        return this.userService.markNotificationAsRead(id);
+    }
+
 
 }

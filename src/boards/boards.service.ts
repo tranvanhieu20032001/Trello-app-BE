@@ -4,6 +4,7 @@ import { BoardDTO } from './dto';
 import { slugify } from '../utils/formatters/formatters';
 import { validateUser } from '../utils/validations';
 import { AppGateway } from '../gateways/app.gateway';
+import { NotificationType } from '@prisma/client';
 
 @Injectable()
 export class BoardsService {
@@ -199,8 +200,6 @@ export class BoardsService {
         return starredBoards.map((item) => item.board);
     }
 
-
-
     async closeBoard(boardId: string, userId: string) {
         if (!boardId) {
             throw new BadRequestException('Invalid board ID');
@@ -273,9 +272,9 @@ export class BoardsService {
         };
     }
 
-    async addMember(boardId: string, userId: string) {
+    async addMember(boardId: string, userId: string, actorId: string) {
         const existingMember = await this.prisma.boardMember.findFirst({
-            where: { boardId, userId }
+            where: { boardId, userId },
         });
 
         if (existingMember) {
@@ -285,33 +284,41 @@ export class BoardsService {
         const boardMember = await this.prisma.boardMember.create({
             data: {
                 userId,
-                boardId
-            }
+                boardId,
+            },
         });
 
         await this.prisma.userBoardPreference.create({
             data: {
                 userId,
-                boardId
-            }
-        })
-
+                boardId,
+            },
+        });
         const user = await this.prisma.user.findUnique({
-            where: { id: userId }
-        })
-        // if(userId !== actorId){
-        //     await this.prisma.notification.create({ 
-        //         data:{
+            where: { id: userId },
+        });
 
-        //         }
+        const board = await this.prisma.board.findUnique({
+            where: { id: boardId },
+        });
 
-        //      });
-        // }
-        this.appGateWay.notifyNewMember("board", boardId, user.username)
+        await this.prisma.notification.create({
+            data: {
+                type: NotificationType.ADDED_TO_BOARD,
+                data: {
+                    boardId: boardId,
+                    boardName: board?.title,
+                },
+                actorId: actorId,
+                targetUserId: userId,
+            },
+        });
+        this.appGateWay.notifyUser(userId);
+        this.appGateWay.notifyNewMember('board', boardId, user.username);
 
         return {
             message: 'Joined board successfully',
-            data: boardMember
+            data: boardMember,
         };
     }
 
@@ -319,21 +326,23 @@ export class BoardsService {
         const board = await this.prisma.board.findUnique({
             where: { id: boardId },
             include: { BoardMembers: true }
-        })
+        });
+
         if (!board) {
-            throw new Error("Board does not exist")
+            throw new Error("Board does not exist");
         }
+
         if (userId === board.ownerId) {
-            const newOwner = board.BoardMembers.find(m => m.userId !== userId)
+            const newOwner = board.BoardMembers.find(m => m.userId !== userId);
             if (newOwner) {
                 await this.prisma.board.update({
                     where: { id: boardId },
                     data: { ownerId: newOwner.userId }
-                })
+                });
             } else {
                 await this.prisma.board.delete({
                     where: { id: boardId }
-                })
+                });
             }
         }
 
@@ -345,7 +354,6 @@ export class BoardsService {
                 }
             }
         });
-
         await this.prisma.userBoardPreference.deleteMany({
             where: {
                 boardId,
@@ -355,16 +363,36 @@ export class BoardsService {
 
         const user = await this.prisma.user.findUnique({
             where: { id: userId }
-        })
-        this.appGateWay.notifyLeaveMember("board", boardId, user.username)
+        });
+        const otherMembers = board.BoardMembers.filter(m => m.userId !== userId);
+        await Promise.all(
+            otherMembers.map(member =>
+                this.prisma.notification.create({
+                    data: {
+                        type: NotificationType.LEAVED_BOARD,
+                        data: {
+                            boardId,
+                            boardName: board.title
+                        },
+                        actorId: userId,
+                        targetUserId: member.userId
+                    }
+                })
+            )
+        );
+
+        otherMembers.forEach(member => this.appGateWay.notifyUser(member.userId));
+
+        this.appGateWay.notifyLeaveMember("board", boardId, user.username);
 
         return {
             success: true,
-            message: "The user has been successfully leave from board."
+            message: "The user has successfully left the board."
         };
     }
 
-    async removeMemberBoard(boardId: string, ownerId: string, userId: string) {
+
+    async removeMemberBoard(boardId: string, ownerId: string, userId: string, actorId: string) {
         const board = await this.prisma.board.findUnique({
             where: { id: boardId },
             include: { BoardMembers: true }
@@ -401,6 +429,18 @@ export class BoardsService {
         const user = await this.prisma.user.findUnique({
             where: { id: userId }
         })
+        await this.prisma.notification.create({
+            data: {
+                type: NotificationType.REMOVE_FROM_BOARD,
+                data: {
+                    boardId: boardId,
+                    boardName: board?.title,
+                },
+                actorId: actorId,
+                targetUserId: userId,
+            },
+        });
+        this.appGateWay.notifyUser(userId);
         this.appGateWay.notifyRemoveMember("board", boardId, user.username)
 
         return {

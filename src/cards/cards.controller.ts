@@ -39,11 +39,21 @@ export class CardsController {
 
     @UseGuards(JwtAuthGuard)
     @Put(':id/attachment')
-    async uploadAttachment(@Param('id') cardId: string, @Body() body: { filePaths: string[] }, @Request() req) {
-        const userId = req.user.user.id
-        return this.cardService.uploadAttachmentPath(cardId, body.filePaths, userId)
-
+    async uploadAttachment(
+        @Param('id') cardId: string,
+        @Body() body: { type: string; filePaths: string[]; filename?: string[] },
+        @Request() req
+    ) {
+        const userId = req.user.user.id;
+        return this.cardService.uploadAttachmentPath(
+            cardId,
+            body.type,
+            body.filePaths,
+            userId,
+            body.filename
+        );
     }
+
 
     @Post(':id/checklist')
     async createCheckList(@Param('id') cardId: string, @Body() body: { title: string }) {

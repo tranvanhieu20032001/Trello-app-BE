@@ -61,9 +61,12 @@ export class BoardsController {
         return this.boardsService.deleteBoard(id, userId)
     }
 
+
+    @UseGuards(JwtAuthGuard)
     @Post('join')
     async joinBoard(@Body() body: { boardId, userId }, @Request() req) {
-        return this.boardsService.addMember(body.boardId, body.userId)
+        const actorId = req.user.user.id
+        return this.boardsService.addMember(body.boardId, body.userId, actorId)
     }
 
     @UseGuards(JwtAuthGuard)
@@ -73,9 +76,12 @@ export class BoardsController {
         return this.boardsService.leaveBoard(boardId, userId)
     }
 
+
+    @UseGuards(JwtAuthGuard)
     @Delete(":boardId/remove")
-    async removeUser(@Param("boardId") boardId: string, @Body() body: { ownerId: string, userId: string }) {
-        return await this.boardsService.removeMemberBoard(boardId, body.ownerId, body.userId)
+    async removeUser(@Param("boardId") boardId: string, @Body() body: { ownerId: string, userId: string }, @Req() req) {
+        const actorId = req.user.user.id
+        return await this.boardsService.removeMemberBoard(boardId, body.ownerId, body.userId, actorId)
     }
 
     @UseGuards(JwtAuthGuard)

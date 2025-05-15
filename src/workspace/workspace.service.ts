@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, HttpException, HttpStatus, Inj
 import { PrismaService } from '../prisma/prisma.service';
 import { validateUser } from '../utils/validations';
 import { AppGateway } from '../gateways/app.gateway';
+import { NotificationType } from '@prisma/client';
 
 @Injectable()
 export class WorkspaceService {
@@ -57,7 +58,7 @@ export class WorkspaceService {
                         include: {
                             UserBoardPreference: true,
                             BoardMembers: true,
-                            Card:true
+                            Card: true
                         }
                     }
                 }
@@ -97,13 +98,20 @@ export class WorkspaceService {
         }
     }
 
-    async addMember(workspaceId: string, userId: string) {
+    async addMember(workspaceId: string, userId: string, actorId: string) {
         const existingMember = await this.prisma.workspaceMember.findFirst({
             where: { workspaceId, userId }
         });
 
         if (existingMember) {
             throw new BadRequestException('User is already a member of this workspace');
+        }
+        const workspace = await this.prisma.workspace.findUnique({
+            where: { id: workspaceId }
+        });
+
+        if (!workspace) {
+            throw new NotFoundException("Workspace does not exist.");
         }
 
         const workspaceMember = await this.prisma.workspaceMember.create({
@@ -114,15 +122,29 @@ export class WorkspaceService {
         });
         const user = await this.prisma.user.findUnique({
             where: { id: userId }
-        })
+        });
 
-        this.appGateway.notifyNewMember("workspace", workspaceId, user.username)
+        await this.prisma.notification.create({
+            data: {
+                type: NotificationType.ADDED_TO_WORKSPACE,
+                data: {
+                    workSpaceId: workspaceId,
+                    workSpaceName: workspace.name
+                },
+                actorId,
+                targetUserId: userId
+            }
+        });
+
+        this.appGateway.notifyUser(userId);
+        this.appGateway.notifyNewMember("workspace", workspaceId, user?.username || "Unknown");
 
         return {
             message: 'Joined workspace successfully',
             data: workspaceMember
         };
     }
+
 
     async searchUser(query: string) {
         return this.prisma.user.findMany({
@@ -160,46 +182,68 @@ export class WorkspaceService {
         const workspace = await this.prisma.workspace.findUnique({
             where: { id: workspaceId },
             include: { members: true }
-        })
+        });
+
         if (!workspace) {
-            throw new NotFoundException("workspace does not exist")
+            throw new NotFoundException("workspace does not exist");
         }
+
         if (userId === workspace.ownerId) {
             const newOwner = workspace.members.find(member => member.userId !== userId);
             if (newOwner) {
                 await this.prisma.workspace.update({
                     where: { id: workspaceId },
                     data: { ownerId: newOwner.userId }
-                })
+                });
             } else {
                 await this.prisma.workspace.delete({
                     where: { id: workspaceId }
-                })
+                });
 
                 return { message: "The workspace has been deleted because there are no members left." };
             }
         }
+
         await this.prisma.workspaceMember.deleteMany({
             where: {
-                workspaceId: workspaceId,
-                userId: userId
+                workspaceId,
+                userId
             }
-        })
+        });
 
         const user = await this.prisma.user.findUnique({
             where: { id: userId }
-        })
+        });
 
-        this.appGateway.notifyLeaveMember("workspace", workspaceId, user.username)
+        const otherMembers = workspace.members.filter(member => member.userId !== userId);
+
+        await Promise.all(
+            otherMembers.map(member =>
+                this.prisma.notification.create({
+                    data: {
+                        type: NotificationType.LEAVED_WORKSPACE,
+                        data: {
+                            workSpaceId: workspaceId,
+                            workSpaceName: workspace.name
+                        },
+                        actorId: userId,
+                        targetUserId: member.userId
+                    }
+                })
+            )
+        );
+
+        otherMembers.forEach(member => this.appGateway.notifyUser(member.userId));
+        this.appGateway.notifyLeaveMember("workspace", workspaceId, user.username);
 
         return {
             success: true,
             message: "You have successfully left the workspace."
-        }
-
+        };
     }
 
-    async removeMemberWorkspace(workspaceId: string, ownerId: string, userId: string) {
+
+    async removeMemberWorkspace(workspaceId: string, ownerId: string, userId: string, actorId: string) {
         const workspace = await this.prisma.workspace.findUnique({
             where: { id: workspaceId },
             include: { members: true },
@@ -232,6 +276,18 @@ export class WorkspaceService {
         const user = await this.prisma.user.findUnique({
             where: { id: userId }
         })
+        await this.prisma.notification.create({
+            data: {
+                type: NotificationType.REMOVE_FROM_WORKSPACE,
+                data: {
+                    workspaceId: workspaceId,
+                    workSpaceName: workspace?.name,
+                },
+                actorId: actorId,
+                targetUserId: userId,
+            },
+        });
+        this.appGateway.notifyUser(userId);
         this.appGateway.notifyRemoveMember("workspace", workspaceId, user.username)
 
         return {
