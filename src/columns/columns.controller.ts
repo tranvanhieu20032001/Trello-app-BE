@@ -13,6 +13,12 @@ export class ColumnsController {
         return this.columnsService.createColumn(columnDTO)
     }
 
+    @Post(':id/copy')
+    async copyColumn(@Param('id') id: string) {
+        return this.columnsService.copyColumn(id);
+    }
+
+
     @Put(":columnId/card/order")
     async updateColumnIds(@Param("columnId") columnId: string, @Body() body: { cardOrderIds: string[] }) {
         return this.columnsService.updateOrderCardIds(columnId, body.cardOrderIds)

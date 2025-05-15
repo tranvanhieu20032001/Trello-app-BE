@@ -10,7 +10,6 @@ export class ColumnsService {
 
   async createColumn(columnDTO: ColumnDTO) {
     try {
-      // await validateUser(this.prisma, userId);
 
       const newColumn = await this.prisma.column.create({
         data: {
@@ -46,6 +45,142 @@ export class ColumnsService {
     } catch (error) {
       console.error("Error creating column:", error);
       throw new InternalServerErrorException(error.message)
+    }
+  }
+  async copyColumn(columnId: string) {
+    const originalColumn = await this.prisma.column.findUnique({
+      where: { id: columnId },
+      include: {
+        cards: {
+          include: {
+            CardMembers: true,
+            labels: true,
+            attachments: true,
+            comments: true,
+            checklists: {
+              include: {
+                items: true
+              }
+            },
+          },
+        },
+      },
+    });
+
+    if (!originalColumn) {
+      throw new NotFoundException('Column not found');
+    }
+
+    // 1. Tạo column mới
+    const newColumn = await this.prisma.column.create({
+      data: {
+        title: `${originalColumn.title} (Copy)`,
+        boardId: originalColumn.boardId,
+      },
+    });
+
+    // 2. Copy từng card
+    for (const card of originalColumn.cards) {
+      const newCard = await this.prisma.card.create({
+        data: {
+          title: card.title,
+          description: card.description,
+          cover: card.cover,
+          startDate: card.startDate,
+          dueDate: card.dueDate,
+          isComplete: card.isComplete,
+          columnId: newColumn.id,
+          boardId: originalColumn.boardId,
+        },
+      });
+
+      // 3. Copy CardMembers
+      if (card.CardMembers.length > 0) {
+        await this.prisma.cardMember.createMany({
+          data: card.CardMembers.map((cm) => ({
+            cardId: newCard.id,
+            userId: cm.userId,
+          })),
+        });
+      }
+
+      if (card.comments.length > 0) {
+        await this.prisma.comment.createMany({
+          data: card.comments.map((cmt) => ({
+            content: cmt.content,
+            cardId: newCard.id,
+            userId: cmt.userId, // 👈 giữ nguyên user gốc
+          })),
+        });
+      }
+
+
+
+      // 5. Copy Labels
+      if (card.labels.length > 0) {
+        await this.prisma.cardLabel.createMany({
+          data: card.labels.map((cl) => ({
+            cardId: newCard.id,
+            labelId: cl.labelId,
+          })),
+        });
+      }
+
+      // 6. Copy attachments
+      if (card.attachments.length > 0) {
+        await this.prisma.attachment.createMany({
+          data: card.attachments.map((att) => ({
+            type: att.type,
+            fileName: att.fileName,
+            fileUrl: att.fileUrl,
+            userId: att.userId,
+            cardId: newCard.id,
+          })),
+        });
+      }
+
+      // 7. Copy checklist
+      for (const checklist of card.checklists) {
+        const newChecklist = await this.prisma.checklist.create({
+          data: {
+            title: checklist.title,
+            cardId: newCard.id,
+          },
+        });
+
+        if (checklist.items.length > 0) {
+          await this.prisma.checklistItem.createMany({
+            data: checklist.items.map((item) => ({
+              text: item.text,
+              isChecked: item.isChecked,
+              checklistId: newChecklist.id,
+            })),
+          });
+        }
+      }
+
+      const board = await this.prisma.board.findUnique({
+        where: { id: originalColumn.boardId },
+        select: { columnOrderIds: true },
+      });
+
+      const updatedColumnOrderIds = [
+        ...(board?.columnOrderIds || []),
+        newColumn.id,
+      ];
+
+      await this.prisma.board.update({
+        where: { id: originalColumn.boardId },
+        data: { columnOrderIds: updatedColumnOrderIds },
+      });
+
+      this.appGateWay?.notifyBoard(originalColumn.boardId);
+
+      return {
+        success: true,
+        message: 'Column copied successfully',
+        data: newColumn,
+      };
     }
   }
 
