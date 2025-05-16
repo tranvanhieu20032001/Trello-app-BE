@@ -10,7 +10,7 @@ async function bootstrap() {
   //add middlware Here
   app.use(cookieParser());
   app.enableCors({
-    origin: 'http://localhost:5173',
+    origin: process.env.FE_URL,
     credentials: true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     allowedHeaders: 'Content-Type,Authorization'
