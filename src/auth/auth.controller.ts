@@ -3,7 +3,6 @@ import { AuthService } from "./auth.service";
 import { AuthDTO } from "./dto";
 import { Request, Response } from "express";
 import { GoogleAuthGuard } from "../guard/google-auth.guard";
-import { log } from "console";
 
 @Controller('api/v1/auth')
 

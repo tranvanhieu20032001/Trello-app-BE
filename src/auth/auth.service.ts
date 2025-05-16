@@ -24,7 +24,7 @@ export class AuthService {
                 data: {
                     email: authDTO.email,
                     password: hashedPassword,
-                    username: authDTO.username,
+                    username: authDTO.email.split("@")[0],
                 },
                 select: {
                     id: true,
@@ -34,7 +34,7 @@ export class AuthService {
             });
             await this.prismaService.workspace.create({
                 data:{
-                    name: "Workspace default",
+                    name: `Wp-${user.id.slice(0,4)}`,
                     ownerId: user.id,
                     members: { create: { userId: user.id } },
                 }

@@ -27,6 +27,9 @@ model WorkspaceMember {
   workspaceId String
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@map("workspace_member")
 }
 
 model Board {
@@ -45,23 +48,24 @@ model Board {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-
-  BoardMembers BoardMember[]
-
-  Card      Card[]
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner               User                  @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  BoardMembers        BoardMember[]
+  Card                Card[]
+  workspace           Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   UserBoardPreference UserBoardPreference[]
 
+  labels      Label[]
+  Invite      Invite[]
+  BoardRecent BoardRecent[]
+
   @@map("boards")
-  Invite Invite[]
 }
 
 model UserBoardPreference {
-  id      String @id @default(uuid())
-  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id      String  @id @default(uuid())
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId  String
-  board   Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  board   Board   @relation(fields: [boardId], references: [id], onDelete: Cascade)
   boardId String
   starred Boolean @default(false)
 
@@ -69,16 +73,16 @@ model UserBoardPreference {
   @@map("user_board_preferences")
 }
 
-
 model Column {
-  id           String   @id @default(uuid())
+  id           String     @id @default(uuid())
   title        String
   boardId      String
-  board        Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  board        Board      @relation(fields: [boardId], references: [id], onDelete: Cascade)
   cardOrderIds String[] // Lưu danh sách ID của cards theo thứ tự
   cards        Card[]
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  Activity     Activity[]
 
   @@map("columns")
 }
@@ -89,40 +93,57 @@ model Card {
   description String?
   cover       String?
   startDate   DateTime?
+  dueDate     DateTime?
+  isComplete  Boolean?  @default(false)
   columnId    String
   boardId     String
   column      Column    @relation(fields: [columnId], references: [id], onDelete: Cascade)
   board       Board     @relation(fields: [boardId], references: [id], onDelete: Cascade)
 
-  comments    Comment[] // Thay vì String[]
-  attachments Attachment[] // Thay vì String[]
+  comments    Comment[]
+  attachments Attachment[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
   CardMembers CardMember[]
   User        User[]
+  labels      CardLabel[]
+  checklists  Checklist[]
+  Activity    Activity[]
 
   @@map("cards")
 }
 
 model Comment {
-  id        String   @id @default(uuid())
-  content   String
-  cardId    String
-  card      Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
+  id           String         @id @default(uuid())
+  content      String
+  cardId       String
+  userId       String
+  createdAt    DateTime       @default(now())
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  card         Card           @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  Notification Notification[]
 
   @@map("comments")
 }
 
 model Attachment {
-  id        String   @id @default(uuid())
+  id        String         @id @default(uuid())
+  type      AttachmentType
+  fileName  String
   fileUrl   String
   cardId    String
-  card      Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  card      Card           @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  createdAt DateTime       @default(now())
 
   @@map("attachments")
+}
+
+enum AttachmentType {
+  LOCAL
+  DRIVER
 }
 
 model User {
@@ -142,10 +163,15 @@ model User {
   BoardMember  BoardMember[]
   CardMember   CardMember[] // Mối quan hệ với card
 
-  WorkspaceMember WorkspaceMember[]
+  WorkspaceMember     WorkspaceMember[]
+  UserBoardPreference UserBoardPreference[]
+  Comment             Comment[]
+  Attachment          Attachment[]
+  Activity            Activity[]
+  Notification        Notification[]
+  BoardRecent         BoardRecent[]
 
   @@map("users")
-  UserBoardPreference UserBoardPreference[]
 }
 
 model BoardMember {
@@ -154,8 +180,19 @@ model BoardMember {
   board   Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
   user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@id([boardId, userId]) // Composite primary key
+  @@id([boardId, userId])
   @@map("board_member")
+}
+
+model BoardRecent {
+  boardId          String
+  userId           String
+  recentAccessedAt DateTime?
+  board            Board     @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([boardId, userId])
+  @@map("board_recent")
 }
 
 model CardMember {
@@ -164,19 +201,120 @@ model CardMember {
   card   Card   @relation(fields: [cardId], references: [id], onDelete: Cascade)
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@id([cardId, userId]) // Composite primary key
+  @@id([cardId, userId])
   @@map("card_members")
 }
 
 model Invite {
-  id          String    @id @default(uuid())
+  id          String     @id @default(uuid())
   workspaceId String?
   boardId     String?
-  token       String    @unique
+  token       String     @unique
   expiresAt   DateTime
-  createAt    DateTime  @default(now())
-  board       Board? @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  createAt    DateTime   @default(now())
+  board       Board?     @relation(fields: [boardId], references: [id], onDelete: Cascade)
   workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@map("invite")
+}
+
+model Label {
+  id        String      @id @default(uuid())
+  name      String
+  color     String
+  boardId   String
+  board     Board       @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  CardLabel CardLabel[]
+
+  @@unique([boardId, name])
+  @@map("labels")
+}
+
+model CardLabel {
+  cardId     String
+  card       Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  labelId    String
+  label      Label    @relation(fields: [labelId], references: [id], onDelete: Cascade)
+  assignedAt DateTime @default(now())
+
+  @@id([cardId, labelId])
+  @@map("card_labels")
+}
+
+model Checklist {
+  id        String          @id @default(uuid())
+  title     String
+  cardId    String
+  card      Card            @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  items     ChecklistItem[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@map("checklists")
+}
+
+model ChecklistItem {
+  id          String    @id @default(uuid())
+  text        String
+  isChecked   Boolean   @default(false)
+  checklistId String
+  checklist   Checklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("checklist_items")
+}
+
+model Activity {
+  id       String         @id @default(uuid())
+  action   ActivityAction
+  data     Json?
+  cardId   String
+  columnId String?
+  userId   String
+  createAt DateTime       @default(now())
+  user     User           @relation(fields: [userId], references: [id])
+  card     Card           @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  column   Column?        @relation(fields: [columnId], references: [id], onDelete: Cascade)
+}
+
+enum ActivityAction {
+  CARD_CREATED
+  JOINED_CARD
+  LEAVED_CARD
+  ADD_MEMBER
+  COMPLETE_CARD
+  INCOMPLETE_CARD
+  UPLOAD_ATTACHMENT
+  DELETE_ATTACHMENT
+}
+
+model Notification {
+  id           String           @id @default(uuid())
+  type         NotificationType
+  commentId    String?
+  data         Json?
+  isRead       Boolean          @default(false)
+  actorId      String
+  targetUserId String
+  createdAt    DateTime         @default(now())
+  actor        User             @relation(fields: [actorId], references: [id])
+  comment      Comment?         @relation(fields: [commentId], references: [id])
+}
+
+enum NotificationType {
+  TAGGED_IN_COMMENT
+  ADDED_TO_CARD
+  REMOVED_FROM_CARD
+  LEAVED_CARD
+  COMPLETE_CARD
+  INCOMPLETE_CARD
+  ADDED_TO_BOARD
+  REMOVE_FROM_BOARD
+  LEAVED_BOARD
+  ADDED_TO_WORKSPACE
+  REMOVE_FROM_WORKSPACE
+  LEAVED_WORKSPACE
 }
