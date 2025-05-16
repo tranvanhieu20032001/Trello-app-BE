@@ -109,7 +109,7 @@ export class ColumnsService {
           data: card.comments.map((cmt) => ({
             content: cmt.content,
             cardId: newCard.id,
-            userId: cmt.userId, // 👈 giữ nguyên user gốc
+            userId: cmt.userId,
           })),
         });
       }

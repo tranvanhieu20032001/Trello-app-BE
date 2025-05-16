@@ -210,7 +210,7 @@ export class BoardsService {
             data: { status: false }
         })
         if (board.ownerId !== userId) {
-            throw new ForbiddenException("Only the workspace owner can remove members.")
+            throw new ForbiddenException("Only owner can close the board.")
         }
 
         this.appGateWay.notifyWorkspace(board.workspaceId)

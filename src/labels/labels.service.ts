@@ -1,10 +1,11 @@
 import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { LabelDTO } from './dto';
+import { AppGateway } from '../gateways/app.gateway';
 
 @Injectable()
 export class LabelsService {
-    constructor(private prisma: PrismaService) { }
+    constructor(private prisma: PrismaService, private readonly appGateWay: AppGateway) { }
 
     async createLabel(labelDTO: LabelDTO) {
         const { boardId, name, color } = labelDTO;
@@ -17,7 +18,7 @@ export class LabelsService {
             throw new NotFoundException("Board not found");
         }
 
-        // this.boardGateway.notifyBoard(boardId)
+        this.appGateWay.notifyBoard(boardId)
 
         return this.prisma.label.create({
             data: {
@@ -37,6 +38,7 @@ export class LabelsService {
             if (!label) {
                 throw new NotFoundException("Label not found");
             }
+            this.appGateWay.notifyBoard(label?.boardId)
 
             return await this.prisma.label.delete({
                 where: { id: labelId },
@@ -54,6 +56,7 @@ export class LabelsService {
         if (!label) {
             throw new NotFoundException("Label not found");
         }
+        this.appGateWay.notifyBoard(label?.boardId)
 
         return this.prisma.label.update({
             where: { id: labelId },
@@ -63,27 +66,40 @@ export class LabelsService {
             },
         });
     }
-    
-    async toggleLabel(cardId:string, labelId:string){
+
+    async toggleLabel(cardId: string, labelId: string) {
         const existing = await this.prisma.cardLabel.findUnique({
             where: {
-              cardId_labelId: { cardId, labelId },
-            },
-          });
-        
-          if (existing) {
-            await this.prisma.cardLabel.delete({
-              where: {
                 cardId_labelId: { cardId, labelId },
-              },
+            },
+        });
+
+        const card = await this.prisma.card.findUnique({
+            where: { id: cardId },
+            select: { boardId: true }, // Giả sử bạn cần boardId
+        });
+
+        if (!card) {
+            throw new Error("Card not found");
+        }
+
+        if (existing) {
+            await this.prisma.cardLabel.delete({
+                where: {
+                    cardId_labelId: { cardId, labelId },
+                },
             });
+
+            this.appGateWay.notifyBoard(card.boardId);
             return { action: "removed" };
-          } else {
+        } else {
             await this.prisma.cardLabel.create({
-              data: { cardId, labelId },
+                data: { cardId, labelId },
             });
+
+            this.appGateWay.notifyBoard(card.boardId);
             return { action: "added" };
-          }
+        }
     }
 
 }

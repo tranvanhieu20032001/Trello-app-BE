@@ -21,8 +21,6 @@ export class BoardsController {
     @UseGuards(JwtAuthGuard)
     @Get('/:id')
     async getBoardById(@Param('id') id: string, @Request() req) {
-        console.log("dsahgsd");
-
         const userId = req.user.user.id
         return this.boardsService.getBoardById(id, userId)
     }
